@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ominidata - Protótipo</title>
+  <link rel="icon" href="imagens/logos/logo.png" type="image/png"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <!-- Botão/menu para quando abrir esta página diretamente -->
+  <button id="menuBtn" class="menu-btn">&#9776;</button>
+  <nav id="sidebar" class="sidebar"></nav>
+
+  <div class="wrap">
+    <header class="header home-header">
+      <div class="logo-wrap">
+        <div class="rot-bg" aria-hidden="true"></div>
+        <img src="imagens/logos/logo.png" alt="Logo" class="logo-img"/>
+      </div>
+      <h1>Ominidata - por Dominique Alves</h1>
+    </header>
+
+    <div class="panel" style="text-align:center">
+      <h2 style="margin:0 0 12px;color:#9fb0c6;font-weight:600;font-size:16px">
+        Base de dados + Simulador de Operações
+      </h2>
+      <p style="margin:0;color:#cfe7ff">
+        Utilize o menu lateral para navegar entre as páginas de consulta, manutenção de fatores e o simulador.
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { carregarMenuLateral } from './js/components/menuLateral.js';
+    import { iniciarSPA } from './js/spaRouter.js';
+    carregarMenuLateral();
+    iniciarSPA();
+  </script>
+  <script>
+    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
+    const isLoginPage = window.location.pathname.endsWith('/login.html');
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
+      window.location.href = loginPath;
+    }
+  </script>
+</body>
+</html>

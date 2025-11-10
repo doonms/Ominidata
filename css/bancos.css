@@ -1,0 +1,194 @@
+.bancos-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  color: #e8f6ff;
+}
+
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.search-bar input {
+  flex: 1 1 240px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #e8f6ff;
+  min-width: 200px;
+}
+
+.search-bar button {
+  background: #0078ff;
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  align-self: center;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,120,255,0.12);
+  border: 1px solid rgba(0,120,255,0.35);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  color: #9fc9ff;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.filter-toggle input {
+  accent-color: #0078ff;
+}
+
+.filter-toggle:hover {
+  background: rgba(0,120,255,0.2);
+  border-color: rgba(0,120,255,0.55);
+}
+
+.summary-panel {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.summary-card {
+  flex: 1 1 160px;
+  min-width: 140px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 1.1rem;
+  color: #e8f6ff;
+}
+
+.summary-card span {
+  font-size: 0.8rem;
+  color: #9fb0c6;
+}
+
+.bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bank-card {
+  background: linear-gradient(180deg, #12171a, #0b0f13);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.bank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bank-header h3 {
+  font-size: 1rem;
+  margin: 0;
+  color: #e8f6ff;
+}
+
+.bank-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.bancos-resumo {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgba(255,255,255,0.08);
+}
+
+.chip-ok {
+  color: #81ffa9;
+}
+
+.chip-alert {
+  color: #ffb871;
+}
+
+.bank-info {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.bancos-section {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.bancos-section--ok {
+  border-color: rgba(129,255,169,0.25);
+  background: rgba(18,38,26,0.5);
+}
+
+.bancos-section--alert {
+  border-color: rgba(255,184,113,0.25);
+  background: rgba(48,30,12,0.5);
+}
+
+.bancos-section strong {
+  display: block;
+  color: #9fb0c6;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.bancos-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bancos-lista li {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #cfd9e4;
+}
+
+.bancos-section em {
+  color: #8494aa;
+  font-size: 0.85rem;
+}

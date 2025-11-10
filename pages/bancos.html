@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <base href="../" />
+  <title>Bancos Aceitos - Ominidata</title>
+
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/filtros.css" />
+  <link rel="stylesheet" href="../css/bancos.css" />
+  
+</head>
+<body>
+  <button class="menu-btn" id="menuBtn">&#9776;</button>
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="wrap">
+    <div class="header header-center">
+      <div class="logo-wrap">
+        <div class="rot-bg" aria-hidden="true"></div>
+        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+      </div>
+      <h1>Bancos Aceitos</h1>
+    </div>
+
+    <div class="bancos-container">
+      <p class="muted">Visualize rapidamente a lista de bancos aceitos e nao aceitos por cada parceiro.</p>
+      <div class="summary-panel" id="summaryPanel">
+        <div class="summary-card">
+          <strong>0</strong>
+          <span>parceiros</span>
+        </div>
+        <div class="summary-card">
+          <strong>0</strong>
+          <span>bancos aceitos</span>
+        </div>
+        <div class="summary-card">
+          <strong>0</strong>
+          <span>bancos com restricao</span>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Buscar por banco, aceitos ou nao aceitos..." />
+        <button id="showAllBtn">&#8635;</button>
+      </div>
+      <div class="filter-row">
+        <label class="filter-toggle">
+          <input type="checkbox" id="filterAceitos" />
+          Somente parceiros com bancos aceitos
+        </label>
+        <label class="filter-toggle">
+          <input type="checkbox" id="filterRestritos" />
+          Somente parceiros com restricoes
+        </label>
+      </div>
+
+      <div id="bankList" class="bank-list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { carregarMenuLateral } from "../js/components/menuLateral.js";
+    import { initBancos } from "../js/bancos/bancos.js";
+
+    (async () => {
+      carregarMenuLateral();
+      await initBancos();
+    })();
+  </script>
+  <script>
+    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
+    const isLoginPage = window.location.pathname.endsWith('/login.html');
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
+      window.location.href = loginPath;
+    }
+  </script>
+</body>
+</html>

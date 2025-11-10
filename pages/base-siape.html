@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Base SIAPE / GOV — Protótipo</title>
+  <link rel="icon" href="../imagens/logo.png" type="image/png">
+  <link rel="stylesheet" href="../css/style.css">
+  <script type="module">
+    import { criarMenuLateral } from '../js/components/menuLateral.js';
+    criarMenuLateral();
+  </script>
+</head>
+<body>
+  <button id="menuBtn" class="menu-btn">☰</button>
+  <nav id="sidebar" class="sidebar"></nav>
+
+  <div class="wrap">
+    <header class="header">
+      <div class="logo-wrap">
+        <div class="rot-bg"></div>
+        <img src="../imagens/logo.png" class="logo-img" alt="Logo"/>
+      </div>
+      <h1>Base SIAPE / GOV / Prefeitura</h1>
+    </header>
+
+    <div class="panel">
+      <p style="color:var(--muted);font-size:14px">
+        Conteúdo da base SIAPE / GOV / Prefeitura.
+      </p>
+    </div>
+  </div>
+  <script>
+    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
+    const isLoginPage = window.location.pathname.endsWith('/login.html');
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
+      window.location.href = loginPath;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <base href="../" />
+  <title>Contatos - Ominidata</title>
+
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/filtros.css" />
+  <link rel="stylesheet" href="../css/contatos.css" />
+</head>
+<body>
+  <button class="menu-btn" id="menuBtn">&#9776;</button>
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="wrap">
+    <div class="header header-center">
+      <div class="logo-wrap">
+        <div class="rot-bg" aria-hidden="true"></div>
+        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+      </div>
+      <h1>Contatos dos Bancos</h1>
+    </div>
+
+    <div class="contatos-container">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Buscar banco ou contato..." />
+        <button id="showAllBtn">&#8635;</button>
+      </div>
+
+      <div id="bankList" class="bank-list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { carregarMenuLateral } from "../js/components/menuLateral.js";
+    import { initContatos } from "../js/contatos/contatos.js";
+
+    (async () => {
+      carregarMenuLateral();
+      await initContatos();
+    })();
+  </script>
+  <script>
+    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
+    const isLoginPage = window.location.pathname.endsWith('/login.html');
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
+      window.location.href = loginPath;
+    }
+  </script>
+</body>
+</html>

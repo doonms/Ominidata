@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Importar Base INSS — Ominidata</title>
+<script type="module">
+import { supabase } from "../js/supa/supabaseClient.js";
+
+function gerarBancoId(nome) {
+  const primeira = nome.toString().trim().split(/\s+/)[0];
+  const normalizado = primeira
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+  return normalizado.length <= 3 ? normalizado : normalizado.slice(0, 3);
+}
+
+async function importar(json) {
+  const registros = [];
+
+  for (const nomeBanco in json) {
+    const banco_id = gerarBancoId(nomeBanco);
+    registros.push({
+      banco_id,
+      nome: nomeBanco,
+      suspenso: json[nomeBanco].status_suspenso ?? false,
+      dados: json[nomeBanco]
+    });
+  }
+
+  const { error } = await supabase
+    .from("base_inss")
+    .upsert(registros, { onConflict: "banco_id" });
+
+  if (error) {
+    alert("❌ ERRO: " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ Importação concluída com sucesso!");
+  }
+}
+
+document.getElementById("arquivo").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const json = JSON.parse(text);
+  importar(json);
+});
+</script>
+</head>
+
+<body style="background:#01131f;color:white;font-family:Inter,sans-serif;padding:40px;">
+  <h1>📥 Importar Base INSS</h1>
+  <p>Selecione o arquivo JSON da base atual:</p>
+  <input type="file" id="arquivo" accept=".json">
+</body>
+</html>

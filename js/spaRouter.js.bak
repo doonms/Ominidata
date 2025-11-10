@@ -1,0 +1,127 @@
+import { initBase } from './main.js';
+
+export function iniciarSPA() {
+  const mainWrap = document.querySelector('.wrap');
+  const sidebar = document.querySelector('.sidebar');
+
+  // 🌐 Rotas das páginas (mapeadas pelo data-nav)
+  const routes = {
+    home: 'index.html',
+    base_inss: 'pages/base-inss.html',
+    base_credito: 'pages/base-credito-pessoal.html',
+    base_siape: 'pages/base-siape.html',
+    simulador: 'pages/simulador.html',
+    pesquisa: 'pages/pesquisa.html',
+    contatos: 'pages/contatos.html',
+    bancos: 'pages/bancos.html'
+  };
+
+  // ✨ Animações suaves
+  const fadeOut = (el) => {
+    el.style.transition = 'opacity 0.25s ease';
+    el.style.opacity = '0';
+    return new Promise((resolve) => setTimeout(resolve, 250));
+  };
+
+  const fadeIn = (el) => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 0.25s ease';
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+    });
+  };
+
+  // 🎯 Intercepta cliques no menu lateral
+  if (sidebar) {
+    sidebar.addEventListener('click', async (e) => {
+      const a = e.target.closest('a');
+      if (!a) return;
+      e.preventDefault();
+
+      const navKey = a.dataset.nav;
+      const href = navKey ? routes[navKey] : a.getAttribute('href');
+      if (!href || href === '#') return;
+
+      const currentPanel = mainWrap?.querySelector('.panel');
+      if (!currentPanel) return;
+      await fadeOut(currentPanel);
+
+      try {
+        const response = await fetch(href);
+        const html = await response.text();
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+
+        const newPanel = temp.querySelector('.panel');
+        const newTitle = temp.querySelector('h1')?.textContent || 'Página';
+        const headerTitle = mainWrap.querySelector('.header h1');
+
+        if (newPanel) {
+          currentPanel.replaceWith(newPanel);
+          if (headerTitle) headerTitle.textContent = newTitle;
+          fadeIn(newPanel);
+
+          // ✅ Atualiza histórico corretamente (sem duplicar)
+          const stateKey = Object.keys(routes).find(key => routes[key] === href);
+          history.pushState({ href, key: stateKey }, '', `#/${stateKey}`);
+
+          // ⚙️ Se for uma base, inicializa os componentes
+          if (href.includes('base-')) {
+            try {
+              initBase && initBase();
+            } catch (err) {
+              console.warn('initBase não encontrado:', err);
+            }
+          }
+        } else {
+          console.warn('Página sem painel válido:', href);
+          fadeIn(currentPanel);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar página:', err);
+        alert('Erro ao carregar a página.');
+        fadeIn(currentPanel);
+      }
+
+      // Fecha o menu lateral
+      sidebar.classList.remove('open');
+    });
+  }
+
+  // 🔁 Suporte ao botão voltar/avançar do navegador
+  window.addEventListener('popstate', async (e) => {
+    const href = e.state?.href || routes.home;
+    const currentPanel = mainWrap?.querySelector('.panel');
+    if (currentPanel) await fadeOut(currentPanel);
+
+    try {
+      const response = await fetch(href);
+      const html = await response.text();
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      const newPanel = temp.querySelector('.panel');
+      const newTitle = temp.querySelector('h1')?.textContent || 'Página';
+      const headerTitle = mainWrap.querySelector('.header h1');
+
+      if (newPanel && currentPanel) {
+        currentPanel.replaceWith(newPanel);
+        if (headerTitle) headerTitle.textContent = newTitle;
+        fadeIn(newPanel);
+
+        if (href.includes('base-')) {
+          try {
+            initBase && initBase();
+          } catch (err) {
+            console.warn('Erro ao inicializar base:', err);
+          }
+        }
+      } else if (currentPanel) {
+        fadeIn(currentPanel);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar página (popstate):', err);
+      if (currentPanel) fadeIn(currentPanel);
+    }
+  });
+}
+
