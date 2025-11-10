@@ -1,4 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
+import { getLogoSrc } from '../utils/logo.js';
 // js/filtros/filtros.js
 // Pesquisa + filtros (simples/avançado) usando base salva no localStorage (regras_bancos_v1)
 
@@ -9,6 +10,17 @@ function getDB() {
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+}
+
+function renderLogoLabel(nome) {
+  const safeNome = esc(nome || '—');
+  const src = getLogoSrc(nome);
+  return `
+    <span class="logo-label">
+      <img src="${src}" alt="Logo ${safeNome}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <span>${safeNome}</span>
+    </span>
+  `;
 }
 
 function parseRange(s) {
@@ -260,7 +272,7 @@ function renderCard(b, opts){
   return `
     <div class="f-card">
       <div class="f-head">
-    <div class="f-title">${esc(b.nomeBanco || '—')}</div>
+        <div class="f-title">${renderLogoLabel(b.nomeBanco || b.nome || '—')}</div>
       </div>
 
       ${renderTopResumo(b)}

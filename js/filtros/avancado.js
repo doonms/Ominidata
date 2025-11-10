@@ -1,4 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
+import { getLogoSrc } from '../utils/logo.js';
 // /js/filtros/avancado.js
 // Modo AVANÇADO — mostra TODAS as seções + TODOS os prazos.
 // Se tiver filtro de idade, filtra os prazos por idade; senão, mostra tudo.
@@ -10,6 +11,16 @@ function getDB(){
   return Array.isArray(data) ? data : [];
 }
 const esc = s => String(s ?? '').replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+
+const renderLogoLabel = nome => {
+  const safe = esc(nome || 'Banco');
+  return `
+    <span class="logo-label">
+      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <span>${safe}</span>
+    </span>
+  `;
+};
 function parseRange(s){
   if(!s) return null;
   const t = String(s).trim().replace(/–/g,'-').replace(/\s+a\s+/i,'-').replace(/\s+/g,'');
@@ -295,7 +306,7 @@ function renderCardAvancado(b, f){
   return `
     <details class="f-card">
       <summary class="f-head">
-        <span class="f-title">${esc(b.nomeBanco || '—')}</span>
+        <span class="f-title">${renderLogoLabel(b.nomeBanco || b.nome || '—')}</span>
       </summary>
       <div class="f-body">
         ${body || '<div class="muted">Nenhuma informação detalhada disponível.</div>'}

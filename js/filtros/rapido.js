@@ -1,10 +1,21 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
+import { getLogoSrc } from '../utils/logo.js';
 // Modo RÁPIDO: mostra cards compactos com Banco + (Idade do filtro) + 1º prazo compatível + Obs
 function getDB(){
   const data = readFromStorage(BASE_INSS_KEY, BASE_INSS_FALLBACKS);
   return Array.isArray(data) ? data : [];
 }
 const esc = s => String(s ?? '').replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+
+const renderLogoLabel = nome => {
+  const safe = esc(nome || 'Banco');
+  return `
+    <span class="logo-label">
+      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <span>${safe}</span>
+    </span>
+  `;
+};
 function parseRange(s){
   if(!s) return null;
   const t = String(s).trim().replace(/–/g,'-').replace(/\s+a\s+/i,'-').replace(/\s+/g,'');
@@ -138,7 +149,7 @@ function renderRapido(list, f, mountSel){
     const obs = hit?.obs ? `<div class="r-obs" title="${esc(hit.obs)}">${esc(hit.obs)}</div>` : '';
     return `
       <div class="card-rapido">
-        <div class="r-bank">${esc(b.nomeBanco||'Banco')}</div>
+        <div class="r-bank">${renderLogoLabel(b.nomeBanco || b.nome || 'Banco')}</div>
         <div class="r-grid">
           <div><span class="r-k">Idade</span><span class="r-v">${esc(idadeTxt)}</span></div>
           <div><span class="r-k">Prazo</span><span class="r-v big">${esc(prazo)}</span></div>

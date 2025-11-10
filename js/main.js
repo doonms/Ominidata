@@ -2,6 +2,7 @@ import { criarBancoCard } from './components/bancoCard.js';
 import { renderPrazosInline, renderInvalidezInline, renderLoasInline, renderOutrasInfos } from './components/renderers.js';
 import { KEY, esc, parseRange, normalize, lerStorage, salvarStorage, novoBancoPadrao } from './components/util.js';
 import { supabase } from './supa/supabaseClient.js';
+import { getLogoSrc } from './utils/logo.js';
 
 let listEl;
 let addBtn;
@@ -100,6 +101,15 @@ function render(){
   arr.forEach(b=>{
     const idx = bancos.indexOf(b);
     const card = criarBancoCard(b, idx, activeTab[idx] || 'geral');
+    const nomeBanco = b.nome || 'Novo Banco';
+    const head = card.querySelector('.card-head > div');
+    if (head) {
+      head.classList.add('logo-label');
+      head.innerHTML = `
+        <img src="${getLogoSrc(nomeBanco)}" alt="Logo ${esc(nomeBanco)}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+        <strong style="font-size:15px;color:#dff3ff">${esc(nomeBanco)}</strong>
+      `;
+    }
     listEl.appendChild(card);
 
     // inline sections

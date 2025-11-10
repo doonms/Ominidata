@@ -98,13 +98,13 @@ export function initBaseFatores(cfg = {}) {
 
   // 🔘 Evento do botão
   if (uploadBtn && uploadInput) {
-    uploadBtn.addEventListener('click', () => uploadInput.click());
-    uploadInput.addEventListener('change', async (event) => {
+    uploadBtn.onclick = () => uploadInput.click();
+    uploadInput.onchange = async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
       await uploadBaseFatores(file);
       event.target.value = '';
-    });
+    };
   }
 
   // Carregar do localStorage
@@ -115,19 +115,19 @@ export function initBaseFatores(cfg = {}) {
   syncBancoSelecionado(els, nomes);
 
   // eventos
-  els.slBanco?.addEventListener("change", () => selectBanco(els));
-  els.btnNovo?.addEventListener("click", () => novoBanco(els));
-  if (els.btnRemover) els.btnRemover.addEventListener("click", () => removerBanco(els));
-  els.btnSalvar?.addEventListener("click", () => salvarTudo());
-  if (els.btnImportar) els.btnImportar.addEventListener("click", () => importarJSON(els));
-  if (els.btnExportar) els.btnExportar.addEventListener("click", () => exportarJSON());
-  els.data?.addEventListener("change", () => mudarData(els));
-  els.swMargem?.addEventListener("change", () => toggleMargem(els));
-  els.swCartao?.addEventListener("change", () => toggleCartao(els));
-  els.addPrazoMargem?.addEventListener("click", () => addPrazo(els, "margem"));
-  els.addPrazoCartao?.addEventListener("click", () => addPrazo(els, "cartao"));
-  els.btnLimparAntigos?.addEventListener("click", limparAntigos);
-  if (els.buscaBanco) els.buscaBanco?.addEventListener("input", () => filtrarBancos(els));
+  if (els.slBanco) els.slBanco.onchange = () => selectBanco(els);
+  if (els.btnNovo) els.btnNovo.onclick = () => novoBanco(els);
+  if (els.btnRemover) els.btnRemover.onclick = () => removerBanco(els);
+  if (els.btnSalvar) els.btnSalvar.onclick = () => salvarTudo();
+  if (els.btnImportar) els.btnImportar.onclick = () => importarJSON(els);
+  if (els.btnExportar) els.btnExportar.onclick = () => exportarJSON();
+  if (els.data) els.data.onchange = () => mudarData(els);
+  if (els.swMargem) els.swMargem.onchange = () => toggleMargem(els);
+  if (els.swCartao) els.swCartao.onchange = () => toggleCartao(els);
+  if (els.addPrazoMargem) els.addPrazoMargem.onclick = () => addPrazo(els, "margem");
+  if (els.addPrazoCartao) els.addPrazoCartao.onclick = () => addPrazo(els, "cartao");
+  if (els.btnLimparAntigos) els.btnLimparAntigos.onclick = limparAntigos;
+  if (els.buscaBanco) els.buscaBanco.oninput = () => filtrarBancos(els);
 
   // render inicial
   selectBanco(els);
