@@ -1,16 +1,97 @@
 import { criarBancoCard } from './components/bancoCard.js';
 import { renderPrazosInline, renderInvalidezInline, renderLoasInline, renderOutrasInfos } from './components/renderers.js';
 import { KEY, esc, parseRange, normalize, lerStorage, salvarStorage, novoBancoPadrao } from './components/util.js';
+import { supabase } from './supa/supabaseClient.js';
 
 let listEl;
 let addBtn;
 let file;
 let saveBtn;
+let uploadBaseBtn;
+let uploadBaseFile;
 
 const rawBancos = lerStorage(KEY).filter(b => b && typeof b === 'object');
 let bancos = rawBancos.map((b) => normalize(b));
 let openState = {};
 let activeTab = bancos.reduce((acc, _, i) => (acc[i] = 'geral', acc), {});
+
+async function readJsonFile(file) {
+  const text = await file.text();
+  return JSON.parse(text);
+}
+
+function gerarBancoId(nome) {
+  if (!nome) return '';
+  const primeira = nome.toString().trim().split(/\s+/)[0];
+  const normalizado = primeira
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+  return normalizado.length <= 3 ? normalizado : normalizado.slice(0, 3);
+}
+
+async function uploadBaseInss(file) {
+  try {
+    if (!file) {
+      alert('Selecione um arquivo JSON para enviar.');
+      return;
+    }
+
+    const json = await readJsonFile(file);
+    const registros = Object.entries(json || {}).map(([nomeBanco, dadosBanco]) => ({
+      banco_id: gerarBancoId(nomeBanco),
+      nome: nomeBanco,
+      suspenso: dadosBanco?.status_suspenso ?? false,
+      dados: dadosBanco
+    }));
+
+    if (!registros.length) {
+      alert('Arquivo vazio ou inválido.');
+      return;
+    }
+
+    await supabase.from('base_inss').delete().neq('banco_id', '');
+    const { error } = await supabase.from('base_inss').upsert(registros, { onConflict: 'banco_id' });
+    if (error) throw error;
+
+    alert('✅ Base INSS enviada com sucesso!');
+    await carregarBaseInssRemota();
+  } catch (err) {
+    console.error('Erro ao enviar base INSS:', err);
+    alert('❌ Erro ao enviar base INSS.');
+  }
+}
+
+async function carregarBaseInssRemota() {
+  try {
+    const { data, error } = await supabase
+      .from('base_inss')
+      .select('*')
+      .order('nome', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao carregar base INSS do Supabase:', error);
+      return;
+    }
+
+    const lista = (data || []).map(row => {
+      const dados = row?.dados && typeof row.dados === 'object' ? row.dados : {};
+      return normalize({
+        ...dados,
+        nome: dados.nome ?? row?.nome ?? '',
+        status_suspenso: dados.status_suspenso ?? row?.suspenso ?? false
+      });
+    });
+
+    bancos = lista;
+    openState = {};
+    activeTab = bancos.reduce((acc, _, i) => (acc[i] = 'geral', acc), {});
+    salvarStorage(KEY, bancos);
+    render();
+  } catch (err) {
+    console.error('Erro inesperado ao carregar base INSS do Supabase:', err);
+  }
+}
 
 function render(){
   if(!listEl) return;
@@ -93,12 +174,23 @@ function captureElements(){
   addBtn  = document.getElementById('add');
   file    = document.getElementById('file');
   saveBtn = document.getElementById('save');
+  uploadBaseBtn = document.getElementById('uploadBaseInssBtn');
+  uploadBaseFile = document.getElementById('uploadBaseInssFile');
 }
 
 function bindStaticHandlers(){
   if(addBtn) addBtn.onclick = handleAddBanco;
   if(file) file.onchange = handleFileChange;
   if(saveBtn) saveBtn.onclick = handleSaveClick;
+  if (uploadBaseBtn && uploadBaseFile) {
+    uploadBaseBtn.onclick = () => uploadBaseFile.click();
+    uploadBaseFile.onchange = async (e) => {
+      const selected = e.target.files?.[0];
+      if (!selected) return;
+      await uploadBaseInss(selected);
+      e.target.value = '';
+    };
+  }
 }
 
 // exposto para o SPA re-renderizar a base quando necessário
@@ -106,6 +198,7 @@ export function initBase(){
   captureElements();
   bindStaticHandlers();
   render();
+  carregarBaseInssRemota();
 }
 
 /* ================== Delegation ================== */

@@ -1,6 +1,7 @@
-﻿import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
+import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
+import { supabase } from '../supa/supabaseClient.js';
 // === Base de Fatores (Simulador Limpo) ===
-// Controle de INSS, margem/cartÃ£o, seguros e calendÃ¡rio.
+// Controle de INSS, margem/cartão, seguros e calendário.
 
 let state = {
   bancos: {},
@@ -35,8 +36,76 @@ const DEFAULT_SELECTORS = {
   buscaBanco: '#bf-buscaBanco'
 };
 
+async function readJsonFile(file) {
+  const text = await file.text();
+  return JSON.parse(text);
+}
+
+// ⚙️ Função para enviar os dados da base de fatores para o Supabase
+async function uploadBaseFatores(file) {
+  try {
+    if (!file) {
+      alert('Selecione um arquivo JSON para enviar.');
+      return;
+    }
+
+    const baseFatores = await readJsonFile(file);
+
+    await supabase.from('base_fatores').delete().neq('id', 0);
+
+    for (const [banco, dadosBanco] of Object.entries(baseFatores || {})) {
+      const fatores = dadosBanco?.fatores || {};
+      for (const [data, tipos] of Object.entries(fatores)) {
+        const margemLista = Array.isArray(tipos?.margem) ? tipos.margem : [];
+        for (const item of margemLista) {
+          await supabase.from('base_fatores').insert({
+            banco,
+            convenio: 'INSS',
+            prazo: item.prazo,
+            fator: item.fator,
+            taxa: item.taxa,
+            tipo: 'margem',
+            data
+          });
+        }
+
+        const cartaoLista = Array.isArray(tipos?.cartao) ? tipos.cartao : [];
+        for (const item of cartaoLista) {
+          await supabase.from('base_fatores').insert({
+            banco,
+            convenio: 'INSS',
+            prazo: item.prazo,
+            fator: item.fator,
+            taxa: item.taxa,
+            tipo: 'cartao',
+            data
+          });
+        }
+      }
+    }
+
+    alert('✅ Base de Fatores enviada com sucesso para o Supabase!');
+  } catch (error) {
+    console.error('Erro ao enviar base:', error);
+    alert('❌ Erro ao enviar base de fatores.');
+  }
+}
+
 export function initBaseFatores(cfg = {}) {
   const els = mapEls(cfg.els ?? DEFAULT_SELECTORS);
+  const uploadBtn = document.getElementById('uploadBaseBtn');
+  const uploadInput = document.getElementById('uploadBaseFile');
+
+  // 🔘 Evento do botão
+  if (uploadBtn && uploadInput) {
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      await uploadBaseFatores(file);
+      event.target.value = '';
+    });
+  }
 
   // Carregar do localStorage
   loadState();
@@ -62,6 +131,8 @@ export function initBaseFatores(cfg = {}) {
 
   // render inicial
   selectBanco(els);
+
+  carregarBaseFatoresRemota(els);
 }
 
 function mapEls(map) {
@@ -141,6 +212,28 @@ function selectBanco(els) {
   }
   const b = state.bancos[nome];
   renderBanco(b, els);
+}
+
+function renderBaseFatores(baseFatoresRows, els) {
+  const bancos = {};
+  (baseFatoresRows || []).forEach(row => {
+    const banco = row?.banco || 'Banco';
+    const data = row?.data || getHojeISO();
+    const tipo = row?.tipo === 'cartao' ? 'cartao' : 'margem';
+    if (!bancos[banco]) bancos[banco] = { fatores: {}, seguros: [] };
+    if (!bancos[banco].fatores[data]) bancos[banco].fatores[data] = novaEstrutura();
+    bancos[banco].fatores[data][tipo].push({
+      prazo: row?.prazo ?? '',
+      fator: row?.fator ?? '',
+      taxa: row?.taxa ?? '',
+      plano: row?.plano ?? row?.tabela ?? ''
+    });
+  });
+  state.bancos = bancos;
+  saveState();
+  const nomes = renderBancoSelect(els);
+  syncBancoSelecionado(els, nomes);
+  selectBanco(els);
 }
 
 function renderBanco(b, els) {
@@ -347,7 +440,7 @@ function importarJSON(els) {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!data || typeof data !== "object") throw new Error("JSON invÃ¡lido");
+        if (!data || typeof data !== "object") throw new Error("JSON inválido");
         state.bancos = data;
         state.filtroBanco = "";
         if (els.buscaBanco) els.buscaBanco.value = "";
@@ -406,6 +499,27 @@ function getBancosFiltrados() {
 function getHojeISO() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
+}
+
+async function carregarBaseFatoresRemota(els) {
+  try {
+    // BASE DE FATORES - LENDO DO SUPABASE
+    const { data: baseFatores, error } = await supabase
+      .from('base_fatores')
+      .select('*')
+      .order('banco', { ascending: true })
+      .order('prazo', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao carregar base do Supabase:', error);
+      return;
+    }
+
+    console.log('Base carregada do Supabase:', baseFatores);
+    renderBaseFatores(baseFatores, els);
+  } catch (err) {
+    console.error('Erro inesperado ao carregar base do Supabase:', err);
+  }
 }
 
 function novaEstrutura() {
@@ -473,6 +587,7 @@ function limparInterface(els) {
 function normalizarTexto(txt) {
   return (txt || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
+
 
 
 

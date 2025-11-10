@@ -23,6 +23,11 @@
       <h1>Base de Fatores</h1>
     </header>
 
+    <div style="margin-bottom:12px;">
+      <button id="uploadBaseBtn" class="btn">📤 Enviar Base ao Supabase</button>
+      <input type="file" id="uploadBaseFile" accept=".json" style="display:none" />
+    </div>
+
     <div class="panel" style="display:flex; gap:16px;">
       <!-- PAINEL LATERAL -->
       <aside style="width:260px; flex:0 0 260px;">
@@ -36,8 +41,8 @@
           <select id="bf-slBanco"></select>
         </div>
 
-        <div class="bank-logo" style="margin:8px 0 12px; text-align:center;">
-          <img id="bf-logoBanco" alt="Logo do banco selecionado" style="max-width:160px; height:auto;"/>
+        <div class="bf-logo-box">
+          <img id="bf-logoBanco" alt="Logo do banco selecionado"/>
         </div>
 
         <div class="grp">

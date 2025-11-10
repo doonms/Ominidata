@@ -13,6 +13,24 @@
 .sim-side-footer{ margin-top:auto; display:grid; gap:8px; }
 .bank-logo{ display:flex; justify-content:center; align-items:center; height:56px; background:#0e1d2c; border-radius:10px; }
 .bank-logo img{ max-height:40px; max-width:90%; object-fit:contain; filter:brightness(1.2) }
+.bf-logo-box{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:8px 0 12px;
+  padding:12px;
+  background:#0e1d2c;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.05);
+  min-height:80px;
+}
+.bf-logo-box img{
+  max-width:160px;
+  width:100%;
+  height:auto;
+  object-fit:contain;
+  filter:brightness(1.15);
+}
 
 .sim-main{ display:grid; gap:12px; }
 .sim-status .status-line{ display:flex; align-items:center; justify-content:space-between; }
