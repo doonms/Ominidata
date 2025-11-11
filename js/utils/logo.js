@@ -1,4 +1,9 @@
-const FALLBACK_LOGO = 'imagens/logos/logo.png';
+function resolveLogoPath(relative) {
+  if (typeof window === 'undefined') return relative;
+  const path = window.location?.pathname || '';
+  const prefix = path.includes('/pages/') ? '../' : './';
+  return `${prefix}${relative}`;
+}
 
 export function slugLogo(nome = '') {
   return nome
@@ -11,5 +16,11 @@ export function slugLogo(nome = '') {
 
 export function getLogoSrc(nome = '') {
   const slug = slugLogo(nome);
-  return slug ? `imagens/logos/${slug}.png` : FALLBACK_LOGO;
+  if (!slug || /^\d+$/.test(slug)) return resolveLogoPath('imagens/logos/logo.png');
+  return resolveLogoPath(`imagens/logos/${slug}.png`);
+}
+
+export function getLogoFallbackAttr() {
+  const fallback = resolveLogoPath('imagens/logos/logo.png');
+  return `this.onerror=null; this.src='${fallback}'; this.style.visibility='visible';`;
 }

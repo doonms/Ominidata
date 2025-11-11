@@ -2,7 +2,7 @@ import { criarBancoCard } from './components/bancoCard.js';
 import { renderPrazosInline, renderInvalidezInline, renderLoasInline, renderOutrasInfos } from './components/renderers.js';
 import { KEY, esc, parseRange, normalize, lerStorage, salvarStorage, novoBancoPadrao } from './components/util.js';
 import { supabase } from './supa/supabaseClient.js';
-import { getLogoSrc } from './utils/logo.js';
+import { getLogoSrc, getLogoFallbackAttr } from './utils/logo.js';
 
 let listEl;
 let addBtn;
@@ -106,7 +106,7 @@ function render(){
     if (head) {
       head.classList.add('logo-label');
       head.innerHTML = `
-        <img src="${getLogoSrc(nomeBanco)}" alt="Logo ${esc(nomeBanco)}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+        <img src="${getLogoSrc(nomeBanco)}" alt="Logo ${esc(nomeBanco)}" class="logo-label-img" onerror="${getLogoFallbackAttr()}">
         <strong style="font-size:15px;color:#dff3ff">${esc(nomeBanco)}</strong>
       `;
     }

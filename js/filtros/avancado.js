@@ -1,5 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
-import { getLogoSrc } from '../utils/logo.js';
+import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
 // /js/filtros/avancado.js
 // Modo AVANÇADO — mostra TODAS as seções + TODOS os prazos.
 // Se tiver filtro de idade, filtra os prazos por idade; senão, mostra tudo.
@@ -16,7 +16,7 @@ const renderLogoLabel = nome => {
   const safe = esc(nome || 'Banco');
   return `
     <span class="logo-label">
-      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="${getLogoFallbackAttr()}">
       <span>${safe}</span>
     </span>
   `;

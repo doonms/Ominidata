@@ -1,5 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
-import { getLogoSrc } from '../utils/logo.js';
+import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
 // Modo RÁPIDO: mostra cards compactos com Banco + (Idade do filtro) + 1º prazo compatível + Obs
 function getDB(){
   const data = readFromStorage(BASE_INSS_KEY, BASE_INSS_FALLBACKS);
@@ -11,7 +11,7 @@ const renderLogoLabel = nome => {
   const safe = esc(nome || 'Banco');
   return `
     <span class="logo-label">
-      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="${getLogoFallbackAttr()}">
       <span>${safe}</span>
     </span>
   `;

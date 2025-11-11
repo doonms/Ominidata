@@ -1,5 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
-import { getLogoSrc } from '../utils/logo.js';
+import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
 // js/filtros/basico.js
 // Renderização do modo Básico: cards compactos com chips resumidos
 
@@ -14,7 +14,7 @@ const renderLogoLabel = nome => {
   const safe = esc(nome || '—');
   return `
     <span class="logo-label">
-      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <img src="${getLogoSrc(nome)}" alt="Logo ${safe}" class="logo-label-img" onerror="${getLogoFallbackAttr()}">
       <span>${safe}</span>
     </span>
   `;

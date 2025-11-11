@@ -1,5 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
-import { getLogoSrc } from '../utils/logo.js';
+import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
 // js/filtros/filtros.js
 // Pesquisa + filtros (simples/avançado) usando base salva no localStorage (regras_bancos_v1)
 
@@ -17,7 +17,7 @@ function renderLogoLabel(nome) {
   const src = getLogoSrc(nome);
   return `
     <span class="logo-label">
-      <img src="${src}" alt="Logo ${safeNome}" class="logo-label-img" onerror="this.style.visibility='hidden'">
+      <img src="${src}" alt="Logo ${safeNome}" class="logo-label-img" onerror="${getLogoFallbackAttr()}">
       <span>${safeNome}</span>
     </span>
   `;

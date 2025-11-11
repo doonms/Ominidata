@@ -65,7 +65,7 @@ textarea{resize:vertical}
 .card-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer}
 .card-body{padding:12px;display:none}
 .logo-label{display:flex;align-items:center;gap:8px}
-.logo-label-img{width:32px;height:32px;border-radius:6px;padding:2px;background:rgba(255,255,255,0.06);object-fit:contain;flex-shrink:0}
+.logo-label-img{width:40px;height:40px;border-radius:8px;padding:3px;background:rgba(255,255,255,0.08);object-fit:contain;flex-shrink:0}
 .row{display:flex;gap:10px;margin-bottom:10px}
 .row .col{flex:1}
 .col-obs{flex:2}
