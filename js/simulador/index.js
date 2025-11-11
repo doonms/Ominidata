@@ -1,17 +1,48 @@
 // === Simulador INSS Ominidata ===
-// Usa os fatores gravados em localStorage (base_fatores_v1)
+// Busca fatores diretamente do Supabase (fallback no localStorage base_fatores_v1)
 
 import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, readFromStorage } from "../config/storageKeys.js";
+import { supabase } from "../supa/supabaseClient.js";
 
 const MODE_PARCELA = "parcela";
 const MODE_LIBERADO = "liberado";
 
-function carregarBaseFatores() {
-  const base = readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS);
-  return base && typeof base === "object" && !Array.isArray(base) ? base : {};
+async function carregarBaseFatores() {
+  try {
+    const { data, error } = await supabase
+      .from("base_fatores")
+      .select("*")
+      .order("banco", { ascending: true })
+      .order("prazo", { ascending: true });
+
+    if (error) throw error;
+    return transformarBaseRemota(data || []);
+  } catch (err) {
+    console.error("Erro ao carregar base de fatores do Supabase:", err);
+    const base = readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS);
+    return base && typeof base === "object" && !Array.isArray(base) ? base : {};
+  }
 }
 
-export function initSimulador() {
+function transformarBaseRemota(rows) {
+  const bancos = {};
+  rows.forEach(row => {
+    const nomeBanco = row?.banco || "Banco";
+    const data = row?.data || new Date().toISOString().slice(0, 10);
+    const tipo = row?.tipo === "cartao" ? "cartao" : "margem";
+    if (!bancos[nomeBanco]) bancos[nomeBanco] = { fatores: {}, seguros: [] };
+    if (!bancos[nomeBanco].fatores[data]) bancos[nomeBanco].fatores[data] = { margem: [], cartao: [] };
+    bancos[nomeBanco].fatores[data][tipo].push({
+      prazo: row?.prazo ?? "",
+      fator: row?.fator ?? "",
+      taxa: row?.taxa ?? "",
+      plano: row?.plano ?? row?.tabela ?? ""
+    });
+  });
+  return bancos;
+}
+
+export async function initSimulador() {
   const slBanco = document.querySelector("#slBanco");
   const slPrazo = document.querySelector("#slPrazo");
   const slSeguro = document.querySelector("#slSeguro");
@@ -36,7 +67,7 @@ export function initSimulador() {
   const resLogo = document.querySelector("#resLogoBanco");
   const resParcelaLabel = document.querySelector("#resParcelaLabel");
 
-  const base = carregarBaseFatores();
+  const base = await carregarBaseFatores();
   const bancos = Object.keys(base);
   if (!bancos.length) {
     if (slBanco) slBanco.innerHTML = "<option disabled>Nenhum banco cadastrado</option>";
