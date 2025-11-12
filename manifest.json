@@ -1,0 +1,21 @@
+{
+  "name": "Ominidata",
+  "short_name": "Ominidata",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#00121b",
+  "theme_color": "#021726",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/imagens/logos/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/imagens/logos/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
