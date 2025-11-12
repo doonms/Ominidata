@@ -29,7 +29,7 @@ export function criarMenuLateral() {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
 
-  const wasOpen = sidebar.classList.contains('open'); // preserva estado aberto/fechado
+  const wasOpen = sidebar.classList.contains('open') || sidebar.classList.contains('active'); // preserva estado aberto/fechado
   const homeHref       = buildLink('index.html');
   const simuladorHref  = buildLink('pages/simulador.html');
   const fatoresHref    = buildLink('pages/base-fatores.html');
@@ -60,7 +60,10 @@ export function criarMenuLateral() {
   // Rebind do botão hamburguer ☰ — usa .onclick para evitar múltiplos handlers
   const menuBtn = document.getElementById('menuBtn');
   if (menuBtn) {
-    menuBtn.onclick = () => sidebar.classList.toggle('open');
+    menuBtn.onclick = () => {
+      sidebar.classList.toggle('open');
+      sidebar.classList.toggle('active');
+    };
   }
 
   // Fecha o menu quando clicar em qualquer link do próprio menu (delegação)
@@ -74,13 +77,19 @@ export function criarMenuLateral() {
         try { return new URL(a.href, window.location.origin).origin === window.location.origin; }
         catch { return true; }
       })();
-      if (sameOrigin) sidebar.classList.remove('open');
+      if (sameOrigin){
+        sidebar.classList.remove('open');
+        sidebar.classList.remove('active');
+      }
     });
     sidebar.dataset.bound = '1';
   }
 
   // Restaura estado aberto se estava aberto antes do re-render
-  if (wasOpen) sidebar.classList.add('open');
+  if (wasOpen){
+    sidebar.classList.add('open');
+    sidebar.classList.add('active');
+  }
 
   getCurrentUser()
     .then(user => {

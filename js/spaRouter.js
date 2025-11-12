@@ -116,6 +116,11 @@ const pageInitializers = {
     ensureStyle('css/style.css');
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
     carregarMenuLateral();
+    const headerLogo = document.querySelector('.header .logo-img');
+    if (headerLogo) {
+      const prefix = window.location.pathname.includes('/pages/') ? '../' : './';
+      headerLogo.src = `${prefix}imagens/logos/logo.png`;
+    }
     const mod = await import('./main.js');
     mod.initBase?.();
   },
