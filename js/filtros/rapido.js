@@ -33,6 +33,24 @@ function idadeMatch(linha, idade){
   if(!rg) return false;
   return idade >= rg.min && idade <= rg.max;
 }
+const LOAS_PRAZOS_MAP = {
+  margem: [
+    { key: 'loas87Ranges', label: 'LOAS 87 - Margem' },
+    { key: 'loas88Ranges', label: 'LOAS 88 - Margem' }
+  ],
+  cartao: [
+    { key: 'loas87Cartao', label: 'LOAS 87 - Cartão' },
+    { key: 'loas88Cartao', label: 'LOAS 88 - Cartão' }
+  ],
+  refin: [
+    { key: 'loas87Refin', label: 'LOAS 87 - Refin' },
+    { key: 'loas88Refin', label: 'LOAS 88 - Refin' }
+  ],
+  port: [
+    { key: 'loas87Port', label: 'LOAS 87 - Portabilidade' },
+    { key: 'loas88Port', label: 'LOAS 88 - Portabilidade' }
+  ]
+};
 function produtoKeyMap(especie){
   switch(especie){
     case 'loas':      return {margem:'loasFazMargem', cartao:'loasFazCartao', refin:'loasFazRefin', port:'loasFazPortabilidade', saque:null};
@@ -43,20 +61,24 @@ function produtoKeyMap(especie){
 }
 function prazosAccessor(b, especie, produto){
   if(especie==='loas'){
-    const map = { margem:['loas87Ranges','loas88Ranges'], cartao:['loas87Cartao','loas88Cartao'], refin:['loas87Refin','loas88Refin'], port:['loas87Port','loas88Port'] };
-    const keys = map[produto]||[];
-    return keys.flatMap(k=>Array.isArray(b[k])?b[k]:[]);
+    return (LOAS_PRAZOS_MAP[produto]||[]).map(({key,label}) => ({
+      label,
+      linhas: Array.isArray(b[key]) ? b[key] : []
+    }));
   }
   if(especie==='invalidez'){
     const map = { margem:'invalidezPrazos', cartao:'invalidezCartao', refin:'invalidezRefin', port:'invalidezPort' };
-    return Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label:null, linhas }] : [];
   }
   if(especie==='pensao'){
     const map = { margem:'prazosPensao', cartao:'prazosPensaoCartao', refin:'prazosPensaoRefin', port:'prazosPensaoPort' };
-    return Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label:null, linhas }] : [];
   }
   const map = { margem:'prazos', cartao:'prazosCartao', port:'prazosPortabilidade' };
-  return map[produto] ? (Array.isArray(b[map[produto]]) ? b[map[produto]] : []) : [];
+  const linhas = map[produto] ? (Array.isArray(b[map[produto]]) ? b[map[produto]] : []) : [];
+  return linhas.length ? [{ label:null, linhas }] : [];
 }
 function especieAssinaturaOK(b, especie, assina){
   if(especie==='loas'){
@@ -86,16 +108,23 @@ function produtosOK(b, especie, prodsSel){
     return key ? !!b[key] : true;
   });
 }
+function extractLoasTipo(label){
+  const match = /LOAS\s+(\d+)/i.exec(label || '');
+  return match ? `LOAS ${match[1]}` : null;
+}
+
 function prazosPorIdade(b, especie, idade, prodsSel){
   const selecionados = Object.entries(prodsSel).filter(([,v])=>!!v).map(([k])=>k);
   const listar = (selecionados.length ? selecionados : ['margem','cartao','refin','port','saque']);
   const out = [];
   for(const p of listar){
-    const arr = prazosAccessor(b, especie, p);
-    if(!arr || !arr.length) continue;
-    const linhas = idade ? arr.filter(l => idadeMatch(l, idade)) : arr;
-    if(!linhas.length) continue;
-    out.push({produto:p, linhas});
+    const blocos = prazosAccessor(b, especie, p);
+    if(!blocos || !blocos.length) continue;
+    for(const bloco of blocos){
+      const linhas = idade ? bloco.linhas.filter(l => idadeMatch(l, idade)) : bloco.linhas;
+      if(!linhas || !linhas.length) continue;
+      out.push({produto:p, linhas, label:bloco.label});
+    }
   }
   return out;
 }
@@ -129,9 +158,35 @@ function aplicarFiltros(db, f){
 function pickPrimeiroPrazo(b, especie, idade, prodsSel){
   const blocos = prazosPorIdade(b, especie, idade, prodsSel);
   if(!blocos.length) return null;
-  const l = (blocos[0].linhas||[])[0];
+  const bloco = blocos[0];
+  const l = (bloco.linhas||[])[0];
   if(!l) return null;
-  return { parcelas: l.parcelas ?? l.prazo ?? null, obs: l.obs || '' };
+  return { parcelas: l.parcelas ?? l.prazo ?? null, obs: l.obs || '', label: bloco.label };
+}
+function buildRapidoCards(list, f){
+  const cards = [];
+  for(const b of list){
+    if(f.especie === 'loas'){
+      const blocos = prazosPorIdade(b, f.especie, f.idade, f.prods);
+      const porTipo = new Map();
+      for(const bloco of blocos){
+        const tipo = extractLoasTipo(bloco.label);
+        if(!tipo || porTipo.has(tipo)) continue;
+        const linha = (bloco.linhas || [])[0];
+        if(!linha) continue;
+        porTipo.set(tipo, {
+          banco: b,
+          hit: { parcelas: linha.parcelas ?? linha.prazo ?? null, obs: linha.obs || '' },
+          loasTag: tipo
+        });
+      }
+      porTipo.forEach(card => cards.push(card));
+    } else {
+      const hit = pickPrimeiroPrazo(b, f.especie, f.idade, f.prods);
+      if(hit) cards.push({ banco: b, hit });
+    }
+  }
+  return cards;
 }
 function renderRapido(list, f, mountSel){
   const mount = document.querySelector(mountSel);
@@ -143,13 +198,22 @@ function renderRapido(list, f, mountSel){
   }
   mount.classList.add('grid-rapido');
   const idadeTxt = f.idade!=null ? `${f.idade} anos` : '—';
-  mount.innerHTML = list.map(b=>{
-    const hit = pickPrimeiroPrazo(b, f.especie, f.idade, f.prods);
+  const cards = buildRapidoCards(list, f);
+  if(!cards.length){
+    mount.classList.remove('grid-rapido');
+    mount.innerHTML = `<div class="f-empty">Nenhum resultado. Ajuste os filtros e pesquise.</div>`;
+    return;
+  }
+  mount.innerHTML = cards.map(({banco: b, hit, loasTag})=>{
     const prazo = hit?.parcelas ? `${hit.parcelas}x` : '—';
     const obs = hit?.obs ? `<div class="r-obs" title="${esc(hit.obs)}">${esc(hit.obs)}</div>` : '';
+    const tag = loasTag ? `<span class="r-loas-tag">${esc(loasTag)}</span>` : '';
     return `
       <div class="card-rapido">
-        <div class="r-bank">${renderLogoLabel(b.nomeBanco || b.nome || 'Banco')}</div>
+        <div class="r-bank">
+          ${renderLogoLabel(b.nomeBanco || b.nome || 'Banco')}
+          ${tag}
+        </div>
         <div class="r-grid">
           <div><span class="r-k">Idade</span><span class="r-v">${esc(idadeTxt)}</span></div>
           <div><span class="r-k">Prazo</span><span class="r-v big">${esc(prazo)}</span></div>

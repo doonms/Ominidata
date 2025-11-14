@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Base de Outros Convenios - Ominidata</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <!-- Botao e menu lateral -->
+  <button class="menu-btn" id="menuBtn">&#9776;</button>
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <!-- Conteudo principal -->
+  <div class="wrap">
+    <div class="header">
+      <div class="logo-wrap">
+        <div class="rot-bg"></div>
+        <img src="../imagens/logos/logo.png" class="logo-img" alt="Logo">
+      </div>
+      <h1>Base de Dados - Outros Convenios</h1>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <button id="uploadBaseOutrosBtn" class="btn">&#128228; Enviar Base Outros Convenios ao Supabase</button>
+      <input type="file" id="uploadBaseOutrosFile" accept=".json" style="display:none"/>
+    </div>
+
+    <div class="panel">
+      <div class="top">
+        <button id="add">+ Novo Banco</button>
+        <input type="file" id="file" accept=".json">
+        <button id="save">&#128190; Exportar</button>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <!-- Imports de modulos -->
+  <script type="module">
+  import { criarMenuLateral } from '../js/components/menuLateral.js';
+  import { initBase as initBaseOutros } from '../js/main-outros-convenios.js';
+
+  criarMenuLateral();
+  initBaseOutros();
+</script>
+
+  <script>
+    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
+    const isLoginPage = window.location.pathname.endsWith('/login.html');
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
+      window.location.href = loginPath;
+    }
+  </script>
+</body>
+</html>

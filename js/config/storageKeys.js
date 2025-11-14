@@ -2,6 +2,10 @@ export const BASE_INSS_KEY = 'ominidata_base_inss_v1';
 export const BASE_INSS_FALLBACKS = ['base_inss_v1', 'regras_bancos_v1'];
 export const BASE_INSS_MIRRORS = ['base_inss_v1'];
 
+export const BASE_OUTROS_KEY = 'ominidata_base_outros_convenios_v1';
+export const BASE_OUTROS_FALLBACKS = ['base_outros_convenios_v1'];
+export const BASE_OUTROS_MIRRORS = ['base_outros_convenios_v1'];
+
 export const BASE_FATORES_KEY = 'ominidata_base_fatores_v1';
 export const BASE_FATORES_FALLBACKS = ['base_fatores_v1', 'regras_bancos_v1'];
 export const BASE_FATORES_MIRRORS = ['base_fatores_v1'];

@@ -9,7 +9,6 @@ export function iniciarSPA() {
     home: 'index.html',
     base_inss: 'pages/base-inss.html',
     base_credito: 'pages/base-credito-pessoal.html',
-    base_siape: 'pages/base-siape.html',
     simulador: 'pages/simulador.html',
     pesquisa: 'pages/pesquisa.html',
     contatos: 'pages/contatos.html',

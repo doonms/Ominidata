@@ -259,4 +259,144 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(12,116,196,0.18)}
   }
 }
 
+.banco-outros-card .card-head {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.inline-checkbox {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: #cfe7ff;
+}
+
+.convenio-type-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.convenios-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.convenio-card {
+  background: #0f1b2b;
+  border: 1px solid #1f3553;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.convenio-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.convenio-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.convenio-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #1e3350;
+  color: #8dd1ff;
+  font-size: 11px;
+  margin-right: 6px;
+  text-transform: uppercase;
+}
+
+.operacional-block h3 {
+  margin-top: 0;
+}
+
+.operacional-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.rogo-wrap {
+  margin-top: 8px;
+}
+
+.nao-assinante-rules {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #273b57;
+}
+
+.nao-assinante-rules h5 {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #cfe7ff;
+}
+
+.prazo-list {
+  margin-bottom: 8px;
+}
+
+.prazo-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.prazo-row .icon {
+  background: transparent;
+  border: none;
+  color: #ff8a8a;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 6px;
+}
+
+.collapsible {
+  margin-top: 16px;
+  border: 1px solid #203555;
+  border-radius: 8px;
+}
+
+.collapsible-header {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: #dff3ff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.collapsible-body {
+  padding: 12px;
+  border-top: 1px solid #203555;
+}
+
+.collapsible .chevron {
+  font-size: 14px;
+}
+
 

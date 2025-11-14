@@ -34,7 +34,6 @@ export function criarMenuLateral() {
   const simuladorHref  = buildLink('pages/simulador.html');
   const fatoresHref    = buildLink('pages/base-fatores.html');
   const inssHref       = buildLink('pages/base-inss.html');
-  const siapeHref      = buildLink('pages/base-siape.html');
   const creditoHref    = buildLink('pages/base-credito-pessoal.html');
   const bancosHref     = buildLink('pages/bancos.html');
   const pesquisaHref   = buildLink('pages/pesquisa.html');
@@ -50,7 +49,6 @@ export function criarMenuLateral() {
     <a class="publico" href="${simuladorHref}" data-nav="simulador">💳 Simulador</a>
     <a class="admin-only" href="${fatoresHref}" data-nav="base_fatores">🧮 Base de Fatores</a>
     <a class="admin-only" href="${inssHref}" data-nav="base_inss">📁 Base INSS</a>
-    <a class="admin-only" href="${siapeHref}" data-nav="base_siape">📁 Base SIAPE</a>
     <a class="admin-only" href="${creditoHref}" data-nav="base_credito">📁 Crédito Pessoal</a>
     <a class="publico" href="${bancosHref}" data-nav="bancos">🏦 Bancos</a>
     <a class="publico" href="${pesquisaHref}" data-nav="pesquisa">🔍 Pesquisa</a>

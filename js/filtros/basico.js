@@ -39,6 +39,25 @@ function idadeMatch(linha, idade) {
   return idade >= faixa.min && idade <= faixa.max;
 }
 
+const LOAS_PRAZOS_MAP = {
+  margem: [
+    { key: 'loas87Ranges', label: 'LOAS 87 - Margem' },
+    { key: 'loas88Ranges', label: 'LOAS 88 - Margem' }
+  ],
+  cartao: [
+    { key: 'loas87Cartao', label: 'LOAS 87 - Cartão' },
+    { key: 'loas88Cartao', label: 'LOAS 88 - Cartão' }
+  ],
+  refin: [
+    { key: 'loas87Refin', label: 'LOAS 87 - Refin' },
+    { key: 'loas88Refin', label: 'LOAS 88 - Refin' }
+  ],
+  port: [
+    { key: 'loas87Port', label: 'LOAS 87 - Portabilidade' },
+    { key: 'loas88Port', label: 'LOAS 88 - Portabilidade' }
+  ]
+};
+
 function produtoKeyMap(especie) {
   switch (especie) {
     case 'loas':
@@ -54,25 +73,24 @@ function produtoKeyMap(especie) {
 
 function prazosAccessor(b, especie, produto) {
   if (especie === 'loas') {
-    const map = {
-      margem: ['loas87Ranges', 'loas88Ranges'],
-      cartao: ['loas87Cartao', 'loas88Cartao'],
-      refin: ['loas87Refin', 'loas88Refin'],
-      port: ['loas87Port', 'loas88Port']
-    };
-    const keys = map[produto] || [];
-    return keys.flatMap(k => Array.isArray(b[k]) ? b[k] : []);
+    return (LOAS_PRAZOS_MAP[produto] || []).map(({ key, label }) => ({
+      label,
+      linhas: Array.isArray(b[key]) ? b[key] : []
+    }));
   }
   if (especie === 'invalidez') {
     const map = { margem: 'invalidezPrazos', cartao: 'invalidezCartao', refin: 'invalidezRefin', port: 'invalidezPort' };
-    return Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label: null, linhas }] : [];
   }
   if (especie === 'pensao') {
     const map = { margem: 'prazosPensao', cartao: 'prazosPensaoCartao', refin: 'prazosPensaoRefin', port: 'prazosPensaoPort' };
-    return Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label: null, linhas }] : [];
   }
   const map = { margem: 'prazos', cartao: 'prazosCartao', port: 'prazosPortabilidade' };
-  return map[produto] ? (Array.isArray(b[map[produto]]) ? b[map[produto]] : []) : [];
+  const linhas = map[produto] ? (Array.isArray(b[map[produto]]) ? b[map[produto]] : []) : [];
+  return linhas.length ? [{ label: null, linhas }] : [];
 }
 
 function especieAssinaturaOK(b, especie, assina) {
@@ -110,11 +128,13 @@ function prazosPorIdade(b, especie, idade, prodsSel) {
   const listar = selecionados.length ? selecionados : ['margem', 'cartao', 'refin', 'port', 'saque'];
   const out = [];
   for (const p of listar) {
-    const arr = prazosAccessor(b, especie, p);
-    if (!arr || !arr.length) continue;
-    const linhas = idade ? arr.filter(l => idadeMatch(l, idade)) : arr;
-    if (!linhas.length) continue;
-    out.push({ produto: p, linhas });
+    const blocos = prazosAccessor(b, especie, p);
+    if (!blocos || !blocos.length) continue;
+    for (const bloco of blocos) {
+      const linhas = idade ? bloco.linhas.filter(l => idadeMatch(l, idade)) : bloco.linhas;
+      if (!linhas || !linhas.length) continue;
+      out.push({ produto: p, linhas, label: bloco.label });
+    }
   }
   return out;
 }

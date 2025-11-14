@@ -6,8 +6,8 @@ import { getCurrentUser, isAdmin } from "./auth/accessControl.js";
 const ADMIN_ROUTES = new Set([
   'pages/base-fatores.html',
   'pages/base-inss.html',
-  'pages/base-siape.html',
   'pages/base-credito-pessoal.html',
+  'pages/base-outros-convenios.html',
   'pages/base-inss-admin.html',
   'pages/usuarios.html',
   'pages/ajustes.html'
@@ -124,15 +124,17 @@ const pageInitializers = {
     const mod = await import('./main.js');
     mod.initBase?.();
   },
-  'pages/base-siape.html': async () => {
-    ensureStyle('css/style.css');
-    const { carregarMenuLateral } = await import('./components/menuLateral.js');
-    carregarMenuLateral();
-  },
   'pages/base-credito-pessoal.html': async () => {
     ensureStyle('css/style.css');
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
     carregarMenuLateral();
+  },
+  'pages/base-outros-convenios.html': async () => {
+    ensureStyle('css/style.css');
+    const { carregarMenuLateral } = await import('./components/menuLateral.js');
+    carregarMenuLateral();
+    const mod = await import('./main-outros-convenios.js');
+    mod.initBase?.();
   },
   'pages/pesquisa.html': async () => {
     ensureStyle('css/style.css');
@@ -244,8 +246,8 @@ export function iniciarSPA() {
     simulador: 'pages/simulador.html',
     base_fatores: 'pages/base-fatores.html',
     base_inss: 'pages/base-inss.html',
-    base_siape: 'pages/base-siape.html',
     base_credito: 'pages/base-credito-pessoal.html',
+    base_outros_convenios: 'pages/base-outros-convenios.html',
     bancos: 'pages/bancos.html',
     pesquisa: 'pages/pesquisa.html',
     contatos: 'pages/contatos.html'
