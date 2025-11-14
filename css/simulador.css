@@ -389,3 +389,21 @@ button.small {
 #btnSimular:hover {
   background: #1980ff;
 }
+@media (max-width: 820px) {
+  .simulador-container {
+    flex-direction: column;
+  }
+  .simulador-side {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+  .simulador-main {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .resultado-card {
+    width: 100%;
+    max-width: none;
+    margin-top: 12px;
+  }
+}

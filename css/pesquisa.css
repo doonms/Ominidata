@@ -283,6 +283,33 @@
   .pesquisa-main{ flex-direction:column; }
   .filtros-pane{ width:100%; border-right:none; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; }
 }
+@media (max-width:640px){
+  .pesquisa-header{
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+    padding:16px 16px 8px;
+  }
+  .logo-block{
+    width:100%;
+    border-bottom:1px solid rgba(255,255,255,0.15);
+    padding-bottom:10px;
+    margin-bottom:4px;
+  }
+  .mode-switch{
+    width:100%;
+    justify-content:center;
+    align-self:stretch;
+    margin-top:0;
+    padding-bottom:8px;
+  }
+  .grid-rapido{
+    grid-template-columns:1fr;
+  }
+  .card-rapido{
+    width:100%;
+  }
+}
 /* --- Avançado: grade de prazos --- */
 .prz-group { margin-top:6px; }
 .prz-head, .prz-row {
