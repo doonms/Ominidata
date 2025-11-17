@@ -218,7 +218,7 @@ function renderBaseFatores(baseFatoresRows, els) {
   const bancos = {};
   (baseFatoresRows || []).forEach(row => {
     const banco = row?.banco || 'Banco';
-    const data = row?.data || getHojeISO();
+    const data = normalizarDataSupabase(row?.data);
     const tipo = row?.tipo === 'cartao' ? 'cartao' : 'margem';
     if (!bancos[banco]) bancos[banco] = { fatores: {}, seguros: [] };
     if (!bancos[banco].fatores[data]) bancos[banco].fatores[data] = novaEstrutura();
@@ -253,8 +253,30 @@ function renderBanco(b, els) {
   els.data.value = data;
   state.dataAtual = data;
   els.infoData.textContent = `Data: ${data}`;
+  aplicarSwitchesBanco(b, els, data);
   renderFatores(b, els);
   renderSeguros(b, els);
+}
+
+function aplicarSwitchesBanco(b, els, data) {
+  if (!b) return;
+  if (!els.swMargem && !els.swCartao) return;
+  const fatores = b.fatores?.[data] || novaEstrutura();
+  const fazMargem = b.hasOwnProperty("fazMargem")
+    ? !!b.fazMargem
+    : (fatores.margem?.length ?? 0) > 0;
+  const fazCartao = b.hasOwnProperty("fazCartao")
+    ? !!b.fazCartao
+    : (fatores.cartao?.length ?? 0) > 0;
+
+  if (els.swMargem) {
+    els.swMargem.checked = fazMargem;
+    toggleMargem(els);
+  }
+  if (els.swCartao) {
+    els.swCartao.checked = fazCartao;
+    toggleCartao(els);
+  }
 }
 
 function novoBanco(els) {
@@ -284,16 +306,27 @@ function mudarData(els) {
     if (ult) b.fatores[d] = JSON.parse(JSON.stringify(b.fatores[ult]));
     else b.fatores[d] = novaEstrutura();
   }
+  aplicarSwitchesBanco(b, els, d);
   renderFatores(b, els);
 }
 
 function toggleMargem(els) {
   const ativo = els.swMargem.checked;
+  const b = getBancoAtual();
+  if (b) {
+    b.fazMargem = ativo;
+    saveState();
+  }
   els.blocoMargem.style.display = ativo ? "block" : "none";
 }
 
 function toggleCartao(els) {
   const ativo = els.swCartao.checked;
+  const b = getBancoAtual();
+  if (b) {
+    b.fazCartao = ativo;
+    saveState();
+  }
   els.blocoCartao.style.display = ativo ? "block" : "none";
 }
 
@@ -498,6 +531,14 @@ function getBancosFiltrados() {
 
 function getHojeISO() {
   const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizarDataSupabase(valor) {
+  if (!valor) return getHojeISO();
+  if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+  const d = new Date(valor);
+  if (Number.isNaN(d.getTime())) return getHojeISO();
   return d.toISOString().slice(0, 10);
 }
 
