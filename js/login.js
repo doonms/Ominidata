@@ -8,31 +8,67 @@ const msg = document.querySelector("#msg");
 // Email do administrador
 const ADMIN_EMAIL = "dominicplf@gmail.com";
 
-loginBtn.addEventListener("click", async () => {
-  msg.textContent = "Autenticando...";
+function setLoading(isLoading) {
+  loginBtn.disabled = isLoading;
+  loginBtn.textContent = isLoading ? "Entrando..." : "Entrar";
+}
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.value.trim(),
-    password: senha.value.trim()
-  });
+async function autenticar() {
+  const emailVal = email.value.trim();
+  const senhaVal = senha.value.trim();
 
-  if (error) {
-    msg.textContent = "❌ " + error.message;
+  if (!emailVal || !senhaVal) {
+    msg.textContent = "Informe email e senha.";
     return;
   }
 
-  // Salva o usuário logado
-  sessionStorage.setItem("ominidata_user", JSON.stringify(data.user));
+  setLoading(true);
+  msg.textContent = "Autenticando...";
 
-  // Define o papel (admin ou user)
-  if (data.user.email === ADMIN_EMAIL) {
-    sessionStorage.setItem("ominidata_role", "admin");
-  } else {
-    sessionStorage.setItem("ominidata_role", "user");
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: emailVal,
+      password: senhaVal
+    });
+
+    if (error) {
+      console.error("Erro no login Supabase:", error);
+      msg.textContent = "Erro: " + (error?.message || "Falha ao autenticar.");
+      return;
+    }
+
+    if (!data?.user) {
+      msg.textContent = "Erro: resposta invalida da autenticacao.";
+      return;
+    }
+
+    sessionStorage.setItem("ominidata_user", JSON.stringify(data.user));
+    localStorage.setItem("ominidata_user", JSON.stringify(data.user));
+
+    const role = data.user.email === ADMIN_EMAIL ? "admin" : "user";
+    sessionStorage.setItem("ominidata_role", role);
+    localStorage.setItem("ominidata_role", role);
+
+    msg.textContent = "Ok. Login realizado! Redirecionando...";
+    setTimeout(() => {
+      window.location.href = "../index.html";
+    }, 800);
+  } catch (err) {
+    console.error("Erro inesperado ao autenticar:", err);
+    msg.textContent = "Erro inesperado ao autenticar. Verifique a conexao.";
+  } finally {
+    setLoading(false);
   }
+}
 
-  msg.textContent = "✅ Login realizado! Redirecionando...";
-  setTimeout(() => {
-    window.location.href = "../index.html";
-  }, 800);
+loginBtn.addEventListener("click", autenticar);
+
+// Permite submit via Enter nas inputs
+[email, senha].forEach(input => {
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      autenticar();
+    }
+  });
 });
