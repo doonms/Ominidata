@@ -3,111 +3,207 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <base href="../">
   <title>Base de Fatores - Ominidata</title>
 
   <link rel="icon" href="../imagens/logos/logo.png" type="image/png"/>
   <link rel="stylesheet" href="../css/style.css"/>
   <link rel="stylesheet" href="../css/simulador.css"/>
 </head>
-<body>
+<body class="base-fatores-page">
   <button class="menu-btn" id="menuBtn">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap">
-    <header class="header">
-      <div class="logo-wrap">
-        <div class="rot-bg" aria-hidden="true"></div>
-        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img">
+  <div class="wrap bf-page">
+    <header class="header bf-hero">
+      <div class="bf-hero-brand">
+        <div class="logo-wrap">
+          <div class="rot-bg" aria-hidden="true"></div>
+          <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img">
+        </div>
+        <div class="bf-hero-copy">
+          <span class="bf-eyebrow">Gestão operacional</span>
+          <h1>Base de Fatores</h1>
+          <p>Atualize prazos, fatores, taxas e seguros utilizados nas simulações.</p>
+        </div>
       </div>
-      <h1>Base de Fatores</h1>
+      <div class="bf-hero-status"><span aria-hidden="true"></span> Ambiente de edição</div>
     </header>
 
-    <div style="margin-bottom:12px;">
-      <button id="uploadBaseBtn" class="btn">📤 Enviar Base ao Supabase</button>
+    <section class="bf-sync-bar" aria-label="Sincronização da base">
+      <div>
+        <strong>Sincronização da base</strong>
+        <span id="bf-sync-status" role="status" aria-live="polite">Importar e salvar mantêm os dados neste navegador. Envie o JSON para publicar os fatores no Supabase.</span>
+      </div>
+      <button id="uploadBaseBtn" class="secondary bf-sync-button">Enviar base ao Supabase</button>
       <input type="file" id="uploadBaseFile" accept=".json" style="display:none" />
-    </div>
+    </section>
 
-    <div class="panel" style="display:flex; gap:16px;">
+    <div class="panel bf-workspace">
       <!-- PAINEL LATERAL -->
-      <aside style="width:260px; flex:0 0 260px;">
-        <div class="grp" style="margin-bottom:12px">
-          <label for="bf-buscaBanco">Buscar banco</label>
-          <input type="search" id="bf-buscaBanco" placeholder="Digite para filtrar"/>
-        </div>
+      <aside class="bf-sidebar" aria-label="Configurações do banco">
+        <section class="bf-sidebar-card">
+          <div class="bf-section-heading">
+            <span class="bf-step">1</span>
+            <div><strong>Banco e vigência</strong><small>Selecione onde deseja trabalhar</small></div>
+          </div>
 
-        <div class="grp" style="margin-bottom:12px">
-          <label for="bf-slBanco">Banco</label>
-          <select id="bf-slBanco"></select>
-        </div>
+          <div class="grp bf-field">
+            <label for="bf-buscaBanco">Buscar banco</label>
+            <input type="search" id="bf-buscaBanco" placeholder="Digite o nome do banco"/>
+          </div>
 
-        <div class="bf-logo-box">
-          <img id="bf-logoBanco" alt="Logo do banco selecionado"/>
-        </div>
+          <div class="grp bf-field">
+            <label for="bf-slBanco">Banco selecionado</label>
+            <select id="bf-slBanco"></select>
+          </div>
 
-        <div class="grp">
-          <label for="bf-data">Data dos fatores</label>
-          <input type="date" id="bf-data"/>
-        </div>
+          <div class="bf-logo-box">
+            <img id="bf-logoBanco" alt="Logo do banco selecionado"/>
+          </div>
 
-        <!-- SWITCHES -->
-        <div class="grp" style="margin-top:10px">
-          <label class="switch">
-            <input type="checkbox" id="bf-swMargem" checked/>
-            <span class="sw"></span>
-            <span>Faz margem?</span>
-          </label>
-        </div>
-        <div class="grp" style="margin-top:6px">
-          <label class="switch">
-            <input type="checkbox" id="bf-swCartao"/>
-            <span class="sw"></span>
-            <span>Faz cartao?</span>
-          </label>
-        </div>
+          <div class="grp bf-field">
+            <label for="bf-data">Data dos fatores</label>
+            <input type="date" id="bf-data"/>
+          </div>
+        </section>
 
-        <!-- ACOES -->
-        <div class="btn-col" style="margin-top:14px; display:flex; flex-direction:column; gap:8px">
-          <button id="bf-novoBanco" class="primary">+ Novo banco</button>
-          <button id="bf-removerBanco" class="danger">Remover banco</button>
-          <button id="bf-salvarBanco" class="primary">Salvar banco</button>
-          <button id="bf-importarBanco" class="secondary">Importar JSON</button>
-          <button id="bf-exportarBanco" class="secondary">Exportar JSON</button>
-          <button id="bf-limparAntigos" class="danger">Limpar fatores antigos (30d)</button>
-        </div>
+        <section class="bf-sidebar-card">
+          <div class="bf-section-heading">
+            <span class="bf-step">2</span>
+            <div><strong>Operações ativas</strong><small>Defina o que o banco oferece</small></div>
+          </div>
+
+          <div class="bf-toggle-list">
+            <label class="switch bf-switch">
+              <input type="checkbox" id="bf-swMargem" checked/>
+              <span class="sw" aria-hidden="true"></span>
+              <span><strong>Faz margem</strong><small>Empréstimo consignado</small></span>
+            </label>
+            <label class="switch bf-switch">
+              <input type="checkbox" id="bf-swCartao"/>
+              <span class="sw" aria-hidden="true"></span>
+              <span><strong>Faz cartão</strong><small>Cartão consignado</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="bf-sidebar-card bf-actions-card">
+          <div class="bf-section-heading">
+            <span class="bf-step">3</span>
+            <div><strong>Ações</strong><small>Salve ou gerencie a base</small></div>
+          </div>
+          <button id="bf-salvarBanco" class="primary bf-save-action">Salvar neste navegador</button>
+          <div class="bf-action-grid">
+            <button id="bf-novoBanco" class="secondary">Novo banco</button>
+            <button id="bf-importarBanco" class="secondary">Importar JSON</button>
+            <button id="bf-exportarBanco" class="secondary">Exportar JSON</button>
+            <button id="bf-removerBanco" class="danger">Remover banco</button>
+          </div>
+          <button id="bf-limparAntigos" class="danger bf-maintenance-action">Limpar fatores com mais de 30 dias</button>
+        </section>
       </aside>
 
       <!-- CONTEUDO PRINCIPAL -->
-      <main style="flex:1 1 auto; min-width:0;">
-        <!-- INSS -->
-        <section class="card">
-          <div class="card-title" style="display:flex; align-items:center; justify-content:space-between;">
+      <main class="bf-content">
+        <!-- CALCULADORA MANUAL -->
+        <section class="card bf-card bf-calculator-card">
+          <div class="card-title bf-card-title">
             <div>
-              <strong>INSS - Fatores</strong>
-              <span id="bf-infoData" class="small muted" style="margin-left:8px"></span>
+              <span class="bf-card-kicker">Cálculo rápido</span>
+              <strong>Calculadora manual de fator</strong>
+              <small>Preencha dois campos para calcular automaticamente o terceiro.</small>
             </div>
+            <button id="bf-calcLimpar" class="small secondary" type="button">Limpar cálculo</button>
+          </div>
+
+          <div class="bf-calculator-form">
+            <div class="bf-calc-field">
+              <label for="bf-calcParcela">Parcela</label>
+              <div class="bf-input-with-prefix">
+                <span>R$</span>
+                <input id="bf-calcParcela" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"/>
+              </div>
+              <small>Valor da parcela mensal</small>
+            </div>
+
+            <span class="bf-calc-symbol" aria-hidden="true">÷</span>
+
+            <div class="bf-calc-field">
+              <label for="bf-calcFator">Fator</label>
+              <div class="bf-input-with-prefix bf-factor-input">
+                <span>ƒ</span>
+                <input id="bf-calcFator" type="text" inputmode="decimal" autocomplete="off" placeholder="0,000000"/>
+              </div>
+              <small>Exemplo: 0,0234</small>
+            </div>
+
+            <span class="bf-calc-symbol" aria-hidden="true">=</span>
+
+            <div class="bf-calc-field bf-calc-result-field">
+              <label for="bf-calcValor">Valor liberado</label>
+              <div class="bf-input-with-prefix">
+                <span>R$</span>
+                <input id="bf-calcValor" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"/>
+              </div>
+              <small>Crédito estimado para o cliente</small>
+            </div>
+          </div>
+
+          <div id="bf-calcStatus" class="bf-calc-status" role="status" aria-live="polite">
+            Use parcela ÷ fator para encontrar o valor liberado.
+          </div>
+        </section>
+
+        <!-- INSS -->
+        <section class="card bf-card">
+          <div class="card-title bf-card-title">
+            <div>
+              <span class="bf-card-kicker">Tabela operacional</span>
+              <strong>INSS — Prazos e fatores</strong>
+              <small>Cadastre as condições vigentes para cada modalidade.</small>
+            </div>
+            <span id="bf-infoData" class="bf-date-badge"></span>
           </div>
 
           <!-- BLOCO MARGEM -->
           <div id="bf-blocoMargem" class="factor-block">
-            <div class="subttl" style="margin-bottom:6px">Margem - prazos & fatores</div>
+            <div class="bf-block-heading">
+              <div><strong>Margem</strong><span>Condições para empréstimo consignado</span></div>
+              <button id="bf-addPrazoMargem" class="small primary">Adicionar prazo</button>
+            </div>
+            <div class="bf-factor-columns" aria-hidden="true">
+              <span>Prazo</span><span>Fator</span><span>Taxa</span><span>Plano / tabela</span><span>Ação</span>
+            </div>
             <div id="bf-listaPrazosMargem" class="factor-list"></div>
-            <button id="bf-addPrazoMargem" class="small primary" style="margin-top:10px">+ Adicionar prazo</button>
           </div>
 
           <!-- BLOCO CARTAO -->
-          <div id="bf-blocoCartao" class="factor-block" style="margin-top:18px; display:none">
-            <div class="subttl" style="margin-bottom:6px">Cartao - prazos & fatores</div>
+          <div id="bf-blocoCartao" class="factor-block" style="display:none">
+            <div class="bf-block-heading">
+              <div><strong>Cartão</strong><span>Condições para cartão consignado</span></div>
+              <button id="bf-addPrazoCartao" class="small primary">Adicionar prazo</button>
+            </div>
+            <div class="bf-factor-columns" aria-hidden="true">
+              <span>Prazo</span><span>Fator</span><span>Taxa</span><span>Plano / tabela</span><span>Ação</span>
+            </div>
             <div id="bf-listaPrazosCartao" class="factor-list"></div>
-            <button id="bf-addPrazoCartao" class="small primary" style="margin-top:10px">+ Adicionar prazo</button>
           </div>
         </section>
 
         <!-- SEGUROS (INSS) -->
-        <section class="card" style="margin-top:14px">
-          <div class="card-title"><strong>Seguros (INSS)</strong></div>
+        <section class="card bf-card">
+          <div class="card-title bf-card-title">
+            <div>
+              <span class="bf-card-kicker">Serviços adicionais</span>
+              <strong>Seguros</strong>
+              <small>Configure valores fixos ou percentuais vinculados à operação.</small>
+            </div>
+            <button id="bf-addSeguro" class="small primary">Adicionar seguro</button>
+          </div>
+          <div class="bf-seguro-columns" aria-hidden="true">
+            <span>Seguro</span><span>Tipo</span><span>Valor</span><span>Ação</span>
+          </div>
           <div id="bf-listaSeguros" class="seguro-list"></div>
-          <button id="bf-addSeguro" class="small primary" style="margin-top:10px">+ Adicionar seguro</button>
         </section>
       </main>
     </div>
@@ -141,7 +237,12 @@
         btnImportar: '#bf-importarBanco',
         btnExportar: '#bf-exportarBanco',
         btnLimparAntigos: '#bf-limparAntigos',
-        buscaBanco: '#bf-buscaBanco'
+        buscaBanco: '#bf-buscaBanco',
+        calcParcela: '#bf-calcParcela',
+        calcFator: '#bf-calcFator',
+        calcValor: '#bf-calcValor',
+        calcStatus: '#bf-calcStatus',
+        calcLimpar: '#bf-calcLimpar'
       }
     });
   </script>

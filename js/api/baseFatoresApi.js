@@ -1,0 +1,194 @@
+import { supabase } from '../supa/supabaseClient.js';
+import { parseNumeroCalculo } from '../simulador/calculadora-fator.js';
+
+const TAMANHO_PAGINA = 1000;
+export const MIGRACAO_FATORES = 'supabase/migrations/20261016_base_fatores_plano.sql';
+
+function objeto(valor) {
+  return valor !== null && typeof valor === 'object' && !Array.isArray(valor);
+}
+
+function nomeNormalizado(nome) {
+  return String(nome).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function nomeSeguro(nome) {
+  return typeof nome === 'string' && nome.trim() &&
+    !['__proto__', 'constructor', 'prototype'].includes(nome.trim());
+}
+
+function dataISO(valor) {
+  const data = String(valor || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw new Error(`Data de fatores inválida: ${valor || '(vazia)'}.`);
+  const parsed = new Date(`${data}T00:00:00Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== data) {
+    throw new Error(`Data de fatores inválida: ${valor}.`);
+  }
+  return data;
+}
+
+function identidade(row) {
+  return JSON.stringify([nomeNormalizado(row.banco), dataISO(row.data),
+    row.tipo === 'cartao' ? 'cartao' : 'margem', Number(row.prazo),
+    String(row.plano ?? row.tabela ?? '').trim()]);
+}
+
+export function mensagemErroFatores(erro) {
+  if (erro?.code === '42501' || erro?.status === 401 || erro?.status === 403) {
+    return 'Sua sessão não tem permissão para acessar/gravar a Base de Fatores. Entre novamente e confira as permissões no Supabase.';
+  }
+  return erro?.message || 'Não foi possível acessar a Base de Fatores. Confira sua conexão e sessão.';
+}
+
+// Valida o arquivo inteiro ANTES de qualquer escrita, sem descartar linhas inválidas silenciosamente.
+export function prepararFatores(base) {
+  if (!objeto(base) || !Object.keys(base).length) throw new Error('O JSON precisa conter bancos com fatores por data.');
+  const linhas = new Map();
+  for (const [banco, dados] of Object.entries(base)) {
+    if (!nomeSeguro(banco) || !objeto(dados) || !objeto(dados.fatores)) {
+      throw new Error(`Formato inválido no banco "${banco}". Use um JSON exportado da Base de Fatores.`);
+    }
+    for (const [data, tipos] of Object.entries(dados.fatores)) {
+      dataISO(data);
+      if (!objeto(tipos) || Object.keys(tipos).some(tipo => !['margem', 'cartao'].includes(tipo))) {
+        throw new Error(`Estrutura de fatores inválida em ${banco}, ${data}. Esperado: margem/cartao.`);
+      }
+      for (const tipo of ['margem', 'cartao']) {
+        const lista = tipos[tipo] ?? [];
+        if (!Array.isArray(lista)) throw new Error(`Lista ${tipo} inválida em ${banco}, ${data}.`);
+        for (const item of lista) {
+          if (!objeto(item)) throw new Error(`Linha inválida em ${banco}, ${data}, ${tipo}.`);
+          const prazo = parseNumeroCalculo(item.prazo);
+          const fator = parseNumeroCalculo(item.fator);
+          const taxa = item.taxa === '' || item.taxa == null ? null : parseNumeroCalculo(item.taxa);
+          if (!Number.isInteger(prazo) || prazo <= 0 || fator === null || fator <= 0 ||
+              (item.taxa !== '' && item.taxa != null && (taxa === null || taxa < 0))) {
+            throw new Error(`Prazo, fator ou taxa inválidos em ${banco}, ${data}, ${tipo}. Corrija a linha antes de enviar.`);
+          }
+          const row = { banco: banco.trim(), convenio: 'INSS', data, tipo, prazo, fator, taxa,
+            plano: String(item.plano ?? item.tabela ?? '').trim() };
+          const chave = identidade(row);
+          const anterior = linhas.get(chave);
+          if (anterior && (anterior.fator !== fator || anterior.taxa !== taxa)) {
+            throw new Error(`Há tabelas diferentes com o mesmo nome/prazo em ${banco}, ${data}. Dê um nome distinto para cada tabela.`);
+          }
+          linhas.set(chave, row);
+        }
+      }
+    }
+  }
+  if (!linhas.size) throw new Error('O arquivo não contém fatores para enviar. Nenhum dado foi alterado.');
+  return [...linhas.values()];
+}
+
+export async function carregarFatoresRemotos() {
+  const linhas = [];
+  for (let inicio = 0; ; inicio += TAMANHO_PAGINA) {
+    const { data, error } = await supabase.from('base_fatores').select('*')
+      .order('id').range(inicio, inicio + TAMANHO_PAGINA - 1);
+    if (error) throw error;
+    if (!Array.isArray(data)) throw new Error('Resposta inválida ao consultar a Base de Fatores.');
+    for (const row of data) {
+      if (nomeSeguro(row.banco) && ['margem', 'cartao'].includes(row.tipo) &&
+          String(row.convenio || 'INSS').toUpperCase() === 'INSS') dataISO(row.data);
+    }
+    linhas.push(...data);
+    if (data.length < TAMANHO_PAGINA) return linhas;
+  }
+}
+
+// Preserva bancos/datas locais, seguros e logos. Remoto atualiza somente as linhas correspondentes.
+export function mesclarFatoresRemotos(rows, local = {}) {
+  const base = JSON.parse(JSON.stringify(local || {}));
+  for (const row of rows) {
+    if (!nomeSeguro(row.banco) || !['margem', 'cartao'].includes(row.tipo) ||
+        (row.convenio && String(row.convenio).toUpperCase() !== 'INSS')) continue;
+    const data = dataISO(row.data);
+    const nome = Object.keys(base).find(n => nomeNormalizado(n) === nomeNormalizado(row.banco)) || row.banco;
+    const banco = base[nome] ??= { fatores: {}, seguros: [] };
+    banco.fatores ??= {};
+    banco.fatores[data] ??= { margem: [], cartao: [] };
+    const lista = banco.fatores[data][row.tipo] ??= [];
+    let plano = String(row.plano ?? row.tabela ?? '').trim();
+    if (!plano) {
+      const iguais = lista.filter(item => Number(item.prazo) === Number(row.prazo) &&
+        parseNumeroCalculo(item.fator) === parseNumeroCalculo(row.fator));
+      if (iguais.length === 1) plano = String(iguais[0].plano ?? iguais[0].tabela ?? '');
+    }
+    const item = { prazo: row.prazo, fator: row.fator, taxa: row.taxa ?? '', plano };
+    const indice = lista.findIndex(atual => Number(atual.prazo) === Number(item.prazo) &&
+      String(atual.plano ?? atual.tabela ?? '').trim() === plano);
+    if (indice < 0) lista.push(item);
+    else lista[indice] = { ...lista[indice], ...item };
+  }
+  return base;
+}
+
+export function mesclarArquivoFatores(importado, local = {}) {
+  const base = JSON.parse(JSON.stringify(local));
+  for (const [nome, dados] of Object.entries(importado)) {
+    const chave = Object.keys(base).find(n => nomeNormalizado(n) === nomeNormalizado(nome)) || nome;
+    const anterior = base[chave] || {};
+    const banco = base[chave] = { ...anterior, ...dados, fatores: { ...anterior.fatores } };
+    for (const [data, tipos] of Object.entries(dados.fatores)) {
+      banco.fatores[data] = { margem: [], cartao: [], ...banco.fatores[data] };
+      for (const tipo of ['margem', 'cartao']) {
+        const lista = banco.fatores[data][tipo];
+        for (const item of tipos[tipo] || []) {
+          const indice = lista.findIndex(atual => Number(atual.prazo) === Number(item.prazo) &&
+            String(atual.plano ?? atual.tabela ?? '').trim() === String(item.plano ?? item.tabela ?? '').trim());
+          if (indice < 0) lista.push({ ...item });
+          else lista[indice] = { ...lista[indice], ...item };
+        }
+      }
+    }
+  }
+  return base;
+}
+
+async function colunaPlanoDisponivel() {
+  const { error } = await supabase.from('base_fatores').select('plano').limit(0);
+  if (!error) return true;
+  if (['42703', 'PGRST204'].includes(error.code)) return false;
+  throw error;
+}
+
+export async function enviarFatoresRemotos(base) {
+  const linhas = prepararFatores(base);
+  const { data: sessao, error: erroSessao } = await supabase.auth.getUser();
+  if (erroSessao) throw erroSessao;
+  if (!sessao?.user) throw new Error('Entre novamente antes de enviar a Base de Fatores ao Supabase.');
+  const temPlano = await colunaPlanoDisponivel();
+  if (!temPlano && linhas.some(row => row.plano)) {
+    throw new Error(`O Supabase ainda não possui a coluna "plano". Execute ${MIGRACAO_FATORES} no SQL Editor e tente novamente. O arquivo foi mantido neste navegador; nenhum registro remoto foi alterado.`);
+  }
+  const atuais = await carregarFatoresRemotos();
+  const porChave = new Map();
+  for (const row of atuais) {
+    if (String(row.convenio || 'INSS').toUpperCase() !== 'INSS' || !['margem', 'cartao'].includes(row.tipo)) continue;
+    const chave = identidade(row);
+    if (porChave.has(chave)) throw new Error('A base remota contém tabelas duplicadas sem identificação distinta. Nenhum envio foi feito; revise os nomes das tabelas no banco.');
+    porChave.set(chave, row);
+  }
+  const payload = linhas.map(row => {
+    const anterior = porChave.get(identidade(row));
+    const novo = { ...row };
+    if (anterior) {
+      if (anterior.id == null) throw new Error('Um fator remoto está sem ID. Nenhum envio foi feito; confira a estrutura da tabela no Supabase.');
+      novo.id = anterior.id;
+      novo.banco = anterior.banco;
+    }
+    if (!temPlano) delete novo.plano;
+    return novo;
+  });
+  // Um único comando: falha integralmente se alguma linha for recusada; nunca apaga a base.
+  const { data, error, count } = await supabase.from('base_fatores')
+    .upsert(payload, { onConflict: 'id', defaultToNull: false, count: 'exact' }).select('*');
+  if (error) throw error;
+  if (!Array.isArray(data) || count !== payload.length) {
+    throw new Error('O Supabase não confirmou todos os registros. Confira a base antes de tentar novamente.');
+  }
+  // O retorno de linhas pode ser limitado pelo max_rows do projeto; a contagem é do lote inteiro.
+  return { linhas, quantidade: count };
+}

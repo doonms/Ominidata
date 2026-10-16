@@ -33,6 +33,7 @@ export function criarMenuLateral() {
   const homeHref = buildLink('index.html');
   const simuladorHref = buildLink('pages/simulador.html');
   const fatoresHref = buildLink('pages/base-fatores.html');
+  const fatoresDoDiaHref = buildLink('pages/fatores-do-dia.html');
   const inssHref = buildLink('pages/base-inss.html');
   const creditoHref = buildLink('pages/base-credito-pessoal.html');
   const outrosConveniosHref = buildLink('pages/base-outros-convenios.html');
@@ -49,6 +50,7 @@ export function criarMenuLateral() {
     <a class="publico" href="${homeHref}" data-nav="home">&#127968; Início</a>
     <a class="publico" href="${simuladorHref}" data-nav="simulador">&#128187; Simulador</a>
     <a class="admin-only" href="${fatoresHref}" data-nav="base_fatores">&#128201; Base de Fatores</a>
+    <a class="admin-only" href="${fatoresDoDiaHref}" data-nav="fatores_do_dia">&#128198; Fatores do Dia</a>
     <a class="admin-only" href="${inssHref}" data-nav="base_inss">&#128200; Base INSS</a>
     <a class="admin-only" href="${creditoHref}" data-nav="base_credito">&#128179; Crédito Pessoal</a>
     <a class="admin-only" href="${outrosConveniosHref}" data-nav="base_outros_convenios">&#128221; Outros Convênios</a>
@@ -119,4 +121,6 @@ if (document.readyState !== 'loading') {
 }
 
 // CODIGO ADICIONADO PARA CONTROLE DE ACESSO: importaÃ§Ãµes de acesso, classes nas entradas e remoÃ§Ã£o condicional de links administrativos apÃ³s render do menu.
+
+
 

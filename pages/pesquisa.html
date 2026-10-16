@@ -3,49 +3,50 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <base href="../">
   <title>Pesquisa — Ominidata</title>
   <link rel="icon" href="../imagens/logos/logo.png" type="image/png" />
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/filtros.css" />
   <link rel="stylesheet" href="../css/pesquisa.css" />
 </head>
-<body>
-  <button class="menu-btn" id="menuBtn">☰</button>
+<body class="pesquisa-page">
+  <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">☰</button>
   <nav class="sidebar" id="sidebar"></nav>
 
   <div class="wrap pesquisa-wrap">
-    <!-- Topo fixo -->
     <header class="pesquisa-header">
       <div class="logo-block">
         <div class="logo-wrap">
           <div class="rot-bg" aria-hidden="true"></div>
           <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
         </div>
-        <h1>Ominidata</h1>
+        <div class="pesquisa-hero-copy">
+          <span class="pesquisa-eyebrow">Consulta operacional</span>
+          <h1>Pesquisa de bancos</h1>
+          <p>Encontre as condições compatíveis com o perfil do cliente.</p>
+        </div>
       </div>
 
-      <div class="mode-switch">
-        <label class="switch">
+      <div class="mode-switch" role="group" aria-label="Modo de pesquisa">
+        <label class="pesquisa-mode-option">
           <input type="radio" name="modoPesquisa" value="rapido" checked />
-          <span class="track"><span class="thumb"></span></span><span>Rápido</span>
+          <span><strong>Rápido</strong><small>Prazo e observação</small></span>
         </label>
-        <label class="switch">
-          <input type="radio" name="modoPesquisa" value="basico" />
-          <span class="track"><span class="thumb"></span></span><span>Básico</span>
-        </label>
-        <label class="switch">
+        <label class="pesquisa-mode-option">
           <input type="radio" name="modoPesquisa" value="avancado" />
-          <span class="track"><span class="thumb"></span></span><span>Avançado</span>
+          <span><strong>Avançado</strong><small>Regras completas</small></span>
         </label>
         <input type="checkbox" id="f-advanced" hidden />
       </div>
     </header>
 
-    <!-- Corpo em duas colunas -->
     <main class="pesquisa-main">
-      <!-- Painel lateral de filtros -->
-      <aside class="filtros-pane">
+      <section class="filtros-pane" aria-labelledby="pesquisa-filtros-title">
+        <div class="pesquisa-section-heading">
+          <span class="pesquisa-step" aria-hidden="true">1</span>
+          <div><h2 id="pesquisa-filtros-title">Perfil do cliente</h2><p>Informe o perfil e selecione os produtos que deseja consultar.</p></div>
+        </div>
+        <div class="pesquisa-fields">
         <div class="grp">
           <label for="f-idade">Idade</label>
           <input type="number" id="f-idade" min="0" placeholder="Ex.: 75" />
@@ -69,29 +70,38 @@
         </div>
 
         <div class="grp">
-          <label for="f-nome">Banco</label>
-          <input type="text" id="f-nome" placeholder="Ex.: Banco XPTO" />
+          <label for="f-nome">Buscar banco</label>
+          <input type="search" id="f-nome" placeholder="Nome do banco" />
+        </div>
         </div>
 
-        <div class="grp">
-          <label>Produtos</label>
+        <fieldset class="pesquisa-products">
+          <legend>Produtos desejados</legend>
           <div class="prod-grid">
             <label><input type="checkbox" id="p-margem"> Margem</label>
             <label><input type="checkbox" id="p-cartao"> Cartão</label>
             <label><input type="checkbox" id="p-refin"> Refin</label>
             <label><input type="checkbox" id="p-port"> Portabilidade</label>
-            <label><input type="checkbox" id="p-saque"> Saque compl.</label>
+            <label><input type="checkbox" id="p-saque"> Saque complementar</label>
           </div>
-        </div>
+        </fieldset>
 
         <div class="filter-buttons">
-          <button id="btn-search">Pesquisar</button>
-          <button id="btn-clear" class="ghost">Limpar</button>
+          <p>Ao selecionar vários produtos, o banco precisa atender a todos eles.</p>
+          <button id="btn-clear" class="ghost" type="button">Limpar filtros</button>
+          <button id="btn-search" type="button">Pesquisar bancos <span aria-hidden="true">→</span></button>
         </div>
-      </aside>
+      </section>
 
       <!-- Área principal de resultados -->
-      <section class="resultados-pane">
+      <section class="resultados-pane" aria-labelledby="pesquisa-results-title">
+        <div class="pesquisa-results-heading">
+          <div class="pesquisa-section-heading">
+            <span class="pesquisa-step" aria-hidden="true">2</span>
+            <div><h2 id="pesquisa-results-title">Bancos compatíveis</h2><p id="pesquisa-mode-description">Consulte o prazo e a observação correspondente ao perfil informado.</p></div>
+          </div>
+          <span id="pesquisa-result-count" class="pesquisa-count" role="status" aria-live="polite">Aguardando pesquisa</span>
+        </div>
         <div id="results" class="results-area"></div>
       </section>
     </main>
@@ -100,12 +110,12 @@
   <script type="module">
     import { carregarMenuLateral } from '../js/components/menuLateral.js';
     import { initFiltros } from '../js/filtros/filtros.js';
+    import { initPesquisaLayout } from '../js/filtros/pesquisa-layout.js';
     import { carregarBaseInss } from '../js/api/baseInssApi.js';
     import { BASE_INSS_KEY, BASE_INSS_MIRRORS } from '../js/config/storageKeys.js';
     import '../js/filtros/rapido.js';
     import '../js/filtros/avancado.js';
     import '../js/filtros/modos-bridge.js';
-    import '../js/filtros/basico.js';
 
     async function ensureBaseInssCache() {
       try {
@@ -144,6 +154,7 @@
           advanced: '#f-advanced'
         }
       });
+      initPesquisaLayout();
     })();
   </script>
   <script>

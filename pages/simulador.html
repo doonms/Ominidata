@@ -1,103 +1,280 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <base href="../" />
-  <title>Simulador - Ominidata</title>
+  <title>Simulador INSS - Ominidata</title>
   <link rel="icon" href="../imagens/logos/logo.png" type="image/png" />
   <link rel="stylesheet" href="../css/style.css" />
-  <link rel="stylesheet" href="../css/simulador.css" />
+  <link rel="stylesheet" href="../css/simulador-inss.css" />
 </head>
-<body>
-  <button class="menu-btn" id="menuBtn">Menu</button>
+<body class="simulador-page">
+  <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap">
-    <header class="header">
-      <div class="logo-wrap">
-        <div class="rot-bg" aria-hidden="true"></div>
-        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+  <div class="wrap sim-page">
+    <header class="header sim-hero">
+      <div class="sim-hero-brand">
+        <div class="logo-wrap">
+          <div class="rot-bg" aria-hidden="true"></div>
+          <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+        </div>
+        <div class="sim-hero-copy">
+          <span class="sim-eyebrow">Crédito consignado</span>
+          <h1>Simulador INSS</h1>
+          <p>Calcule parcelas e valores liberados com os fatores vigentes.</p>
+          <p id="sim-base-status" role="status" aria-live="polite">Consultando fatores do Supabase; o cálculo manual já está disponível.</p>
+        </div>
       </div>
-      <h1>Simulador INSS</h1>
+      <div class="sim-hero-status"><span aria-hidden="true"></span> Simulação operacional</div>
     </header>
 
-    <div class="panel simulador-container">
-      <aside class="simulador-side">
-        <div class="grp">
-          <label for="slBanco">Banco</label>
-          <select id="slBanco"></select>
+    <section class="panel sim-search-panel" aria-labelledby="sim-search-title">
+      <div class="sim-search-heading">
+        <div class="sim-side-title">
+          <span class="sim-step">1</span>
+          <div>
+            <strong id="sim-search-title">Encontre o banco para o cliente</strong>
+            <small>Use os filtros rápidos e clique na logo para carregar a simulação.</small>
+          </div>
+        </div>
+        <span id="sim-bank-count" class="sim-result-badge">Carregando bancos…</span>
+      </div>
+
+      <form id="sim-search-form">
+        <div class="sim-search-fields">
+          <div class="sim-field">
+            <label for="sim-idade">Idade</label>
+            <input type="number" id="sim-idade" min="0" max="120" step="1" placeholder="Ex.: 65" />
+          </div>
+          <div class="sim-field">
+            <label for="sim-especie">Espécie</label>
+            <select id="sim-especie">
+              <option value="geral">Geral</option>
+              <option value="loas">LOAS</option>
+              <option value="invalidez">Invalidez</option>
+              <option value="pensao">Pensão</option>
+            </select>
+          </div>
+          <div class="sim-field">
+            <label for="sim-assina">Cliente assina?</label>
+            <select id="sim-assina">
+              <option value="qualquer">Qualquer</option>
+              <option value="sim">Sim</option>
+              <option value="nao">Não</option>
+            </select>
+          </div>
+          <div class="sim-field">
+            <label for="sim-nome">Buscar banco</label>
+            <input type="search" id="sim-nome" placeholder="Nome do banco" />
+          </div>
+        </div>
+        <fieldset class="sim-search-products">
+          <legend>Produtos desejados</legend>
+          <label><input type="checkbox" id="sim-p-margem" value="margem" /><span>Margem</span></label>
+          <label><input type="checkbox" id="sim-p-cartao" value="cartao" /><span>Cartão</span></label>
+          <label><input type="checkbox" id="sim-p-refin" value="refin" /><span>Refin</span></label>
+          <label><input type="checkbox" id="sim-p-port" value="port" /><span>Portabilidade</span></label>
+          <label><input type="checkbox" id="sim-p-saque" value="saque" /><span>Saque complementar</span></label>
+        </fieldset>
+        <div class="sim-search-actions">
+          <small>Ao marcar mais de um produto, o banco precisa oferecer todos eles.</small>
+          <button type="reset" class="secondary">Limpar filtros</button>
+          <button type="submit" class="primary">Pesquisar bancos</button>
+        </div>
+      </form>
+      <p id="sim-search-status" class="sim-form-status" role="status" aria-live="polite"></p>
+      <div id="sim-bank-results" class="sim-bank-results" aria-label="Bancos compatíveis"></div>
+    </section>
+
+    <div class="panel sim-workspace" id="sim-operacao">
+      <section class="sim-controls" aria-label="Dados da simulação">
+        <div class="sim-calculation-head">
+        <div class="sim-side-title">
+          <span class="sim-step">2</span>
+          <div>
+            <strong>Monte sua simulação</strong>
+            <small>Escolha o que deseja calcular</small>
+          </div>
         </div>
 
-        <div class="grp">
-          <label for="slPrazo">Prazo</label>
-          <select id="slPrazo"></select>
-        </div>
-
-        <div class="grp">
-          <label>Modos de calculo</label>
-          <div class="toggle-col">
-            <label class="switch">
+        <div class="sim-mode-options" role="group" aria-label="O que deseja calcular?">
+            <label class="sim-mode-option">
               <input type="radio" name="calcMode" id="modoParcela" value="parcela" checked />
-              <span class="sw"></span>
-              <span>Calcular parcela</span>
+              <span class="sim-option-mark" aria-hidden="true"></span>
+              <span><strong>Calcular parcela</strong><small>Informe o valor que deseja liberar</small></span>
             </label>
-            <label class="switch">
+            <label class="sim-mode-option">
               <input type="radio" name="calcMode" id="modoLiberado" value="liberado" />
-              <span class="sw"></span>
-              <span>Calcular valor liberado</span>
-            </label>
-            <label class="switch" id="grpCartaoSwitch">
-              <input type="checkbox" id="swCartao" />
-              <span class="sw"></span>
-              <span>Cartao</span>
+              <span class="sim-option-mark" aria-hidden="true"></span>
+              <span><strong>Calcular valor liberado</strong><small>Informe o valor da parcela / margem</small></span>
             </label>
           </div>
         </div>
 
-        <div class="grp" id="grpValorDesejado">
-          <label for="inpValorDesejado">Valor liberado (R$)</label>
-          <input type="number" id="inpValorDesejado" min="0" step="0.01" />
+        <div class="sim-inputs-grid">
+        <div class="grp sim-field sim-value-field" id="grpValorDesejado">
+          <label for="inpValorDesejado">Valor que deseja liberar</label>
+          <div class="sim-money-input">
+            <span>R$</span>
+            <input type="text" inputmode="decimal" id="inpValorDesejado" autocomplete="off" placeholder="0,00" />
+          </div>
         </div>
 
-        <div class="grp" id="grpValorMargem" style="display:none">
-          <label for="inpValorMargem">Valor da margem (R$)</label>
-          <input type="number" id="inpValorMargem" min="0" step="0.01" />
+        <div class="grp sim-field sim-value-field" id="grpValorMargem" style="display:none">
+          <label for="inpValorMargem">Valor da parcela / margem</label>
+          <div class="sim-money-input">
+            <span>R$</span>
+            <input type="text" inputmode="decimal" id="inpValorMargem" autocomplete="off" placeholder="0,00" />
+          </div>
         </div>
 
-        <div class="grp">
+        <div class="grp sim-field">
+          <label for="inpFatorManual">Fator</label>
+          <input type="text" id="inpFatorManual" inputmode="decimal" autocomplete="off" placeholder="Ex.: 0,0234" aria-describedby="sim-fator-hint" />
+          <small class="sim-field-hint" id="sim-fator-hint">Parcela ÷ fator = valor liberado.</small>
+        </div>
+
+        <div class="grp sim-field">
+          <label for="slBanco">Banco (opcional)</label>
+          <select id="slBanco"><option value="">Escolher banco</option></select>
+        </div>
+
+        <div class="grp sim-field">
+          <label for="slOrigemFator">Origem do fator</label>
+          <select id="slOrigemFator">
+            <option value="manual">Fator manual</option>
+            <option value="tabela">Tabela cadastrada</option>
+          </select>
+        </div>
+        </div>
+
+        <div class="sim-manual-fields" id="grpDetalhesManuais">
+          <div class="grp sim-field">
+            <label for="inpTabelaManual">Nome da tabela (opcional)</label>
+            <input type="text" id="inpTabelaManual" maxlength="160" autocomplete="off" placeholder="Ex.: Tabela especial" />
+            <small class="sim-field-hint">Em branco, não aparece no resultado.</small>
+          </div>
+          <div class="grp sim-field">
+            <label for="inpTaxaManual">Taxa em % (opcional)</label>
+            <input type="text" id="inpTaxaManual" inputmode="decimal" autocomplete="off" placeholder="Ex.: 1,70" />
+            <small class="sim-field-hint">Somente para exibição. O cálculo utiliza o fator.</small>
+          </div>
+        </div>
+
+        <details class="sim-conditions" id="sim-condicoes">
+          <summary>Condições da operação <span>Operação, prazo, tabela e seguro</span></summary>
+          <div class="sim-conditions-grid">
+        <div class="grp sim-field">
+          <label for="slOperacao">Operação</label>
+          <select id="slOperacao">
+            <option value="margem">Margem</option>
+            <option value="cartao">Cartão</option>
+            <option value="refin">Refinanciamento</option>
+            <option value="port">Portabilidade</option>
+            <option value="saque">Saque complementar</option>
+          </select>
+        </div>
+
+        <div class="grp sim-field" id="grpPrazoManual">
+          <label for="inpPrazoManual">Prazo (opcional)</label>
+          <input type="number" id="inpPrazoManual" min="1" step="1" placeholder="Ex.: 84" />
+        </div>
+
+        <div class="sim-fields-grid" id="grpTabelaCadastrada" hidden>
+          <div class="grp sim-field">
+            <label for="slPrazo">Prazo</label>
+            <select id="slPrazo"></select>
+          </div>
+          <div class="grp sim-field">
+            <label for="slTabela">Tabela</label>
+            <select id="slTabela"></select>
+          </div>
+        </div>
+
+        <div class="grp sim-field">
           <label for="slSeguro">Seguro</label>
           <select id="slSeguro">
             <option value="">Sem seguro</option>
           </select>
+          <small class="sim-field-hint">Opcional. O valor será considerado no resultado.</small>
         </div>
+          </div>
+        </details>
 
-        <div class="grp">
-          <button id="btnSimular" class="primary" style="width:100%">Simular</button>
+        <div class="sim-calculation-footer">
+        <p id="sim-status" class="sim-form-status" role="status" aria-live="polite">Informe o valor e o fator ou escolha um banco na pesquisa acima.</p>
+        <button id="btnSimular" class="primary sim-submit" type="button">
+          <span>Calcular simulação</span>
+          <span aria-hidden="true">→</span>
+        </button>
         </div>
-      </aside>
+      </section>
 
-      <main class="simulador-main">
-        <section class="card resultado-card">
-          <div class="card-title">
-            <strong>Resultado da simulacao</strong>
+        <section class="sim-result-card" id="sim-result" aria-label="Resultado da simulação" hidden>
+          <div class="card-title sim-result-title">
+            <div>
+              <strong>Resultado da simulação</strong>
+            </div>
+            <span class="sim-result-badge"><i aria-hidden="true"></i> Estimativa</span>
           </div>
 
-          <div class="resultado-logo">
-            <img id="resLogoBanco" alt="Logo do banco" />
+          <div class="sim-result-body">
+          <div class="sim-bank-summary">
+            <div class="resultado-logo">
+              <img id="resLogoBanco" alt="" hidden />
+            </div>
+            <div class="sim-bank-copy">
+              <small>Instituição selecionada</small>
+              <strong id="resBancoNome">-</strong>
+            </div>
           </div>
 
-          <div class="resultado-grid">
-            <div><span>Valor liberado:</span> <strong id="resValor">-</strong></div>
-            <div><span>Prazo:</span> <strong id="resPrazo">-</strong></div>
-            <div><span id="resParcelaLabel">Valor da parcela:</span> <strong id="resParcela">-</strong></div>
-            <div><span>Taxa:</span> <strong id="resTaxa">-</strong></div>
-            <div><span>Plano/Tabela:</span> <strong id="resPlano">-</strong></div>
-            <div><span>Seguro:</span> <strong id="resSeguro">Sem seguro</strong></div>
+          <div class="sim-primary-metrics">
+          <div class="sim-primary-result">
+            <span>Valor liberado</span>
+            <strong id="resValor">-</strong>
+            <small>Crédito líquido estimado</small>
           </div>
+          <div class="sim-primary-result sim-payment-result">
+            <span id="resParcelaLabel">Valor da parcela</span>
+            <strong id="resParcela">-</strong>
+            <small>Compromisso mensal</small>
+          </div>
+          </div>
+
+          <div class="resultado-grid sim-result-grid">
+            <div>
+              <span>Prazo</span>
+              <strong id="resPrazo">-</strong>
+            </div>
+            <div id="resTaxaItem" hidden>
+              <span>Taxa</span>
+              <strong id="resTaxa">-</strong>
+            </div>
+            <div id="resPlanoItem" class="sim-result-wide" hidden>
+              <span>Plano / tabela</span>
+              <strong id="resPlano">-</strong>
+            </div>
+            <div id="resFatorItem" hidden>
+              <span>Fator utilizado</span>
+              <strong id="resFator">-</strong>
+            </div>
+            <div id="resSeguroItem" class="sim-result-wide" hidden>
+              <span>Seguro</span>
+              <strong id="resSeguro"></strong>
+            </div>
+          </div>
+          </div>
+
+          <div class="sim-result-note">
+            <span aria-hidden="true">i</span>
+            <p>Resultado estimado com as condições informadas. Confirme os valores antes da contratação.</p>
+          </div>
+          <footer class="sim-result-footer">Simulado em <strong>Ominidata</strong></footer>
         </section>
-      </main>
     </div>
+
   </div>
 
   <script type="module">

@@ -1,5 +1,14 @@
 import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
-import { supabase } from '../supa/supabaseClient.js';
+import { carregarFatoresRemotos, enviarFatoresRemotos, mesclarFatoresRemotos,
+  mesclarArquivoFatores, mensagemErroFatores, prepararFatores } from '../api/baseFatoresApi.js';
+import {
+  calcularFator,
+  calcularParcela,
+  calcularValorLiberado,
+  formatarFatorCalculo as formatarFator,
+  formatarMoedaCalculo as formatarMoedaManual,
+  parseNumeroCalculo as parseNumeroManual
+} from './calculadora-fator.js';
 // === Base de Fatores (Simulador Limpo) ===
 // Controle de INSS, margem/cartão, seguros e calendário.
 
@@ -11,6 +20,22 @@ let state = {
   lastSave: null,
   filtroBanco: ""
 };
+let versaoLocal = 0;
+
+function informarSincronizacao(texto, erro = false) {
+  const status = document.getElementById('bf-sync-status');
+  if (!status) return;
+  status.textContent = texto;
+  status.setAttribute('role', erro ? 'alert' : 'status');
+}
+
+function guardarBackupLocal() {
+  if (Object.keys(state.bancos).length) {
+    localStorage.setItem('ominidata_base_fatores_backup_v1', JSON.stringify({
+      data: new Date().toISOString(), bancos: state.bancos
+    }));
+  }
+}
 
 const DEFAULT_SELECTORS = {
   slBanco: '#bf-slBanco',
@@ -33,7 +58,12 @@ const DEFAULT_SELECTORS = {
   btnImportar: '#bf-importarBanco',
   btnExportar: '#bf-exportarBanco',
   btnLimparAntigos: '#bf-limparAntigos',
-  buscaBanco: '#bf-buscaBanco'
+  buscaBanco: '#bf-buscaBanco',
+  calcParcela: '#bf-calcParcela',
+  calcFator: '#bf-calcFator',
+  calcValor: '#bf-calcValor',
+  calcStatus: '#bf-calcStatus',
+  calcLimpar: '#bf-calcLimpar'
 };
 
 async function readJsonFile(file) {
@@ -42,52 +72,37 @@ async function readJsonFile(file) {
 }
 
 // ⚙️ Função para enviar os dados da base de fatores para o Supabase
-async function uploadBaseFatores(file) {
+async function uploadBaseFatores(file, els) {
+  const botao = document.getElementById('uploadBaseBtn');
   try {
     if (!file) {
       alert('Selecione um arquivo JSON para enviar.');
       return;
     }
 
+    if (botao) botao.disabled = true;
     const baseFatores = await readJsonFile(file);
-
-    await supabase.from('base_fatores').delete().neq('id', 0);
-
-    for (const [banco, dadosBanco] of Object.entries(baseFatores || {})) {
-      const fatores = dadosBanco?.fatores || {};
-      for (const [data, tipos] of Object.entries(fatores)) {
-        const margemLista = Array.isArray(tipos?.margem) ? tipos.margem : [];
-        for (const item of margemLista) {
-          await supabase.from('base_fatores').insert({
-            banco,
-            convenio: 'INSS',
-            prazo: item.prazo,
-            fator: item.fator,
-            taxa: item.taxa,
-            tipo: 'margem',
-            data
-          });
-        }
-
-        const cartaoLista = Array.isArray(tipos?.cartao) ? tipos.cartao : [];
-        for (const item of cartaoLista) {
-          await supabase.from('base_fatores').insert({
-            banco,
-            convenio: 'INSS',
-            prazo: item.prazo,
-            fator: item.fator,
-            taxa: item.taxa,
-            tipo: 'cartao',
-            data
-          });
-        }
-      }
-    }
-
-    alert('✅ Base de Fatores enviada com sucesso para o Supabase!');
+    prepararFatores(baseFatores);
+    guardarBackupLocal();
+    state.bancos = mesclarArquivoFatores(baseFatores, state.bancos);
+    saveState();
+    state.filtroBanco = '';
+    if (els.buscaBanco) els.buscaBanco.value = '';
+    syncBancoSelecionado(els, renderBancoSelect(els));
+    selectBanco(els);
+    informarSincronizacao('Arquivo preservado neste navegador. Enviando fatores ao Supabase…');
+    const resultado = await enviarFatoresRemotos(baseFatores);
+    if (!els.slBanco.isConnected) return;
+    renderBaseFatores(resultado.linhas, els);
+    informarSincronizacao(`${resultado.quantidade} fatores confirmados no Supabase. Registros ausentes no arquivo foram mantidos. Seguros e logos continuam locais.`);
+    alert(`✅ ${resultado.quantidade} fatores enviados/atualizados e confirmados no Supabase. Os demais registros foram mantidos.`);
   } catch (error) {
     console.error('Erro ao enviar base:', error);
-    alert('❌ Erro ao enviar base de fatores.');
+    const mensagem = `Não foi possível confirmar o envio. ${mensagemErroFatores(error)}`;
+    if (els.slBanco.isConnected) informarSincronizacao(mensagem, true);
+    alert(mensagem);
+  } finally {
+    if (botao) botao.disabled = false;
   }
 }
 
@@ -102,7 +117,7 @@ export function initBaseFatores(cfg = {}) {
     uploadInput.onchange = async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
-      await uploadBaseFatores(file);
+      await uploadBaseFatores(file, els);
       event.target.value = '';
     };
   }
@@ -129,6 +144,8 @@ export function initBaseFatores(cfg = {}) {
   if (els.btnLimparAntigos) els.btnLimparAntigos.onclick = limparAntigos;
   if (els.buscaBanco) els.buscaBanco.oninput = () => filtrarBancos(els);
 
+  initCalculadoraManual(els);
+
   // render inicial
   selectBanco(els);
 
@@ -141,11 +158,115 @@ function mapEls(map) {
   return out;
 }
 
+function initCalculadoraManual(els) {
+  const campos = {
+    parcela: els.calcParcela,
+    fator: els.calcFator,
+    valor: els.calcValor
+  };
+  if (!campos.parcela || !campos.fator || !campos.valor) return;
+
+  let historico = [];
+
+  Object.entries(campos).forEach(([nome, campo]) => {
+    campo.addEventListener("input", () => {
+      historico = historico.filter(item => item !== nome);
+      historico.push(nome);
+      if (historico.length > 2) historico.shift();
+      calcularCampoManual(campos, historico, nome, els.calcStatus);
+    });
+
+    campo.addEventListener("blur", () => {
+      const numero = parseNumeroManual(campo.value);
+      if (numero === null) return;
+      campo.value = nome === "fator" ? formatarFator(numero) : formatarMoedaManual(numero);
+    });
+  });
+
+  if (els.calcLimpar) {
+    els.calcLimpar.addEventListener("click", () => {
+      Object.values(campos).forEach(campo => { campo.value = ""; });
+      historico = [];
+      atualizarStatusCalculadora(
+        els.calcStatus,
+        "Use parcela ÷ fator para encontrar o valor liberado."
+      );
+      campos.parcela.focus();
+    });
+  }
+}
+
+function calcularCampoManual(campos, historico, campoEditado, status) {
+  const valores = {
+    parcela: parseNumeroManual(campos.parcela.value),
+    fator: parseNumeroManual(campos.fator.value),
+    valor: parseNumeroManual(campos.valor.value)
+  };
+
+  let fontes;
+  if (valores[campoEditado] === null) {
+    fontes = Object.keys(valores).filter(nome => nome !== campoEditado && valores[nome] !== null);
+  } else {
+    fontes = historico.filter(nome => valores[nome] !== null);
+  }
+
+  if (fontes.length < 2) {
+    atualizarStatusCalculadora(status, "Preencha mais um campo para realizar o cálculo.");
+    return;
+  }
+
+  const chaves = new Set(fontes.slice(-2));
+  let destino;
+  if (chaves.has("parcela") && chaves.has("fator")) destino = "valor";
+  if (chaves.has("parcela") && chaves.has("valor")) destino = "fator";
+  if (chaves.has("fator") && chaves.has("valor")) destino = "parcela";
+  if (!destino) return;
+
+  let resultado;
+  let mensagem;
+  if (destino === "valor") {
+    if (valores.fator <= 0) {
+      atualizarStatusCalculadora(status, "O fator precisa ser maior que zero.", true);
+      return;
+    }
+    resultado = calcularValorLiberado(valores.parcela, valores.fator);
+    mensagem = "Valor liberado = parcela ÷ fator";
+  } else if (destino === "fator") {
+    if (valores.valor <= 0) {
+      atualizarStatusCalculadora(status, "O valor liberado precisa ser maior que zero.", true);
+      return;
+    }
+    resultado = calcularFator(valores.parcela, valores.valor);
+    mensagem = "Fator = parcela ÷ valor liberado";
+  } else {
+    resultado = calcularParcela(valores.valor, valores.fator);
+    mensagem = "Parcela = valor liberado × fator";
+  }
+
+  if (!Number.isFinite(resultado) || resultado < 0) {
+    atualizarStatusCalculadora(status, "Confira os valores informados.", true);
+    return;
+  }
+
+  campos[destino].value = destino === "fator"
+    ? formatarFator(resultado)
+    : formatarMoedaManual(resultado);
+  campos[destino].classList.add("is-calculated");
+  window.setTimeout(() => campos[destino].classList.remove("is-calculated"), 320);
+  atualizarStatusCalculadora(status, `${mensagem}. Resultado atualizado automaticamente.`);
+}
+
+function atualizarStatusCalculadora(elemento, mensagem, erro = false) {
+  if (!elemento) return;
+  elemento.textContent = mensagem;
+  elemento.classList.toggle("is-error", erro);
+}
+
 function loadState() {
   state.keyStorage = BASE_FATORES_KEY;
   const data = readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS);
   if (data && typeof data === "object" && !Array.isArray(data)) {
-    state.bancos = data;
+    state.bancos = Object.fromEntries(Object.entries(data).filter(([, banco]) => banco?.fatores));
     writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
   } else {
     state.bancos = {};
@@ -155,6 +276,7 @@ function loadState() {
 function saveState() {
   writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
   state.lastSave = new Date();
+  versaoLocal++;
 }
 
 function renderBancoSelect(els) {
@@ -215,20 +337,9 @@ function selectBanco(els) {
 }
 
 function renderBaseFatores(baseFatoresRows, els) {
-  const bancos = {};
-  (baseFatoresRows || []).forEach(row => {
-    const banco = row?.banco || 'Banco';
-    const data = normalizarDataSupabase(row?.data);
-    const tipo = row?.tipo === 'cartao' ? 'cartao' : 'margem';
-    if (!bancos[banco]) bancos[banco] = { fatores: {}, seguros: [] };
-    if (!bancos[banco].fatores[data]) bancos[banco].fatores[data] = novaEstrutura();
-    bancos[banco].fatores[data][tipo].push({
-      prazo: row?.prazo ?? '',
-      fator: row?.fator ?? '',
-      taxa: row?.taxa ?? '',
-      plano: row?.plano ?? row?.tabela ?? ''
-    });
-  });
+  if (!baseFatoresRows?.length) return;
+  const bancos = mesclarFatoresRemotos(baseFatoresRows, state.bancos);
+  guardarBackupLocal();
   state.bancos = bancos;
   saveState();
   const nomes = renderBancoSelect(els);
@@ -355,9 +466,6 @@ function renderFatores(b, els) {
 function renderLinhaPrazo(f, idx, tipo, b, els) {
   const div = document.createElement("div");
   div.className = "factor-row";
-  div.style.display = "grid";
-  div.style.gridTemplateColumns = "80px 1fr 1fr 1.2fr auto";
-  div.style.gap = "8px";
   if (typeof f.taxa !== "string") f.taxa = f.taxa != null ? String(f.taxa) : "";
   if (typeof f.plano !== "string") f.plano = f.plano != null ? String(f.plano) : "";
   div.innerHTML = `
@@ -395,10 +503,6 @@ function renderSeguros(b, els) {
 
     const row = document.createElement("div");
     row.className = "seguro-row";
-    row.style.display = "grid";
-    row.style.gridTemplateColumns = "1fr 140px 140px 90px";
-    row.style.gap = "8px";
-    row.style.alignItems = "center";
     row.innerHTML = `
       <input value="${s.nome || ""}" placeholder="Nome do seguro"/>
       <select>
@@ -473,18 +577,20 @@ function importarJSON(els) {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!data || typeof data !== "object") throw new Error("JSON inválido");
-        state.bancos = data;
+        prepararFatores(data);
+        guardarBackupLocal();
+        state.bancos = mesclarArquivoFatores(data, state.bancos);
         state.filtroBanco = "";
         if (els.buscaBanco) els.buscaBanco.value = "";
         saveState();
         const nomes = renderBancoSelect(els);
         syncBancoSelecionado(els, nomes);
         selectBanco(els);
-        alert("Importado com sucesso!");
+        informarSincronizacao('JSON importado somente neste navegador. Use “Enviar base ao Supabase” para disponibilizar os fatores aos outros usuários.');
+        alert("Importado neste navegador. Para publicar, use Enviar base ao Supabase.");
       } catch (err) {
         console.error("Erro ao importar JSON", err);
-        alert("Erro ao importar JSON");
+        alert(`Erro ao importar JSON: ${mensagemErroFatores(err)}`);
       }
     };
     reader.readAsText(file);
@@ -502,7 +608,11 @@ function exportarJSON() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function salvarTudo() { saveState(); alert("Salvo!"); }
+function salvarTudo() {
+  saveState();
+  informarSincronizacao('Alterações salvas neste navegador. Para publicar: exporte o JSON e use “Enviar base ao Supabase”.');
+  alert("Salvo neste navegador. Para publicar, exporte o JSON e use Enviar base ao Supabase.");
+}
 
 function limparAntigos() {
   const hoje = new Date();
@@ -534,32 +644,25 @@ function getHojeISO() {
   return d.toISOString().slice(0, 10);
 }
 
-function normalizarDataSupabase(valor) {
-  if (!valor) return getHojeISO();
-  if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
-  const d = new Date(valor);
-  if (Number.isNaN(d.getTime())) return getHojeISO();
-  return d.toISOString().slice(0, 10);
-}
-
 async function carregarBaseFatoresRemota(els) {
+  const versaoInicial = versaoLocal;
+  informarSincronizacao('Consultando fatores do Supabase… Os dados locais foram mantidos.');
   try {
-    // BASE DE FATORES - LENDO DO SUPABASE
-    const { data: baseFatores, error } = await supabase
-      .from('base_fatores')
-      .select('*')
-      .order('banco', { ascending: true })
-      .order('prazo', { ascending: true });
-
-    if (error) {
-      console.error('Erro ao carregar base do Supabase:', error);
+    const baseFatores = await carregarFatoresRemotos();
+    if (!els.slBanco.isConnected) return;
+    if (versaoLocal !== versaoInicial) {
+      informarSincronizacao('Suas alterações locais foram mantidas; a consulta em segundo plano não as sobrescreveu.');
       return;
     }
-
-    console.log('Base carregada do Supabase:', baseFatores);
+    if (!baseFatores.length) {
+      informarSincronizacao('O Supabase não retornou fatores visíveis para esta sessão. Dados locais preservados; confira uploads e permissões de leitura.');
+      return;
+    }
     renderBaseFatores(baseFatores, els);
+    informarSincronizacao(`${baseFatores.length} fatores consultados no Supabase. Seguros, logos e registros locais foram preservados.`);
   } catch (err) {
     console.error('Erro inesperado ao carregar base do Supabase:', err);
+    if (els.slBanco.isConnected) informarSincronizacao(`Dados locais preservados. ${mensagemErroFatores(err)}`, true);
   }
 }
 

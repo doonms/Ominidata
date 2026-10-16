@@ -5,6 +5,7 @@ import { getCurrentUser, isAdmin } from "./auth/accessControl.js";
 
 const ADMIN_ROUTES = new Set([
   'pages/base-fatores.html',
+  'pages/fatores-do-dia.html',
   'pages/base-inss.html',
   'pages/base-credito-pessoal.html',
   'pages/base-outros-convenios.html',
@@ -28,7 +29,6 @@ async function ensureCurrentUser() {
 
 
 let SPA_BASE_PREFIX = '';
-const LOADED_STYLES = new Set();
 
 function resolveAssetHref(path) {
   if (!path) return path;
@@ -49,16 +49,15 @@ function resolveAssetHref(path) {
 
 function ensureStyle(path) {
   const href = resolveAssetHref(path);
-  if (!href || LOADED_STYLES.has(href)) return;
+  if (!href) return;
   const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
     .find(link => link.href === href);
-  if (existing) { LOADED_STYLES.add(href); return; }
+  if (existing) { existing.disabled = false; return; }
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = href;
   link.dataset.spaLoaded = '1';
   document.head.appendChild(link);
-  LOADED_STYLES.add(href);
 }
 
 async function hydrateBaseInssCache() {
@@ -95,7 +94,7 @@ const pageInitializers = {
   },
   'pages/simulador.html': async () => {
     ensureStyle('css/style.css');
-    ensureStyle('css/simulador.css');
+    ensureStyle('css/simulador-inss.css');
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
     carregarMenuLateral();
     const mod = await import('./simulador/index.js');
@@ -109,6 +108,14 @@ const pageInitializers = {
     carregarMenuLateral();
     // Aguarda o DOM renderizado antes de inicializar
     await new Promise(r => setTimeout(r, 100));
+    const mod = await import('./simulador/base-fatores.js');
+    mod.initBaseFatores?.();
+  },
+  'pages/fatores-do-dia.html': async () => {
+    ensureStyle('css/style.css');
+    ensureStyle('css/simulador.css');
+    const { carregarMenuLateral } = await import('./components/menuLateral.js');
+    carregarMenuLateral();
     const mod = await import('./simulador/base-fatores.js');
     mod.initBaseFatores?.();
   },
@@ -144,8 +151,7 @@ const pageInitializers = {
     await Promise.all([
       import('./filtros/rapido.js'),
       import('./filtros/avancado.js'),
-      import('./filtros/modos-bridge.js'),
-      import('./filtros/basico.js')
+      import('./filtros/modos-bridge.js')
     ]);
     const mod = await import('./filtros/filtros.js');
     mod.initFiltros?.({
@@ -166,6 +172,8 @@ const pageInitializers = {
         advanced: '#f-advanced'
       }
     });
+    const layout = await import('./filtros/pesquisa-layout.js');
+    layout.initPesquisaLayout();
   },
   'pages/contatos.html': async () => {
     ensureStyle('css/style.css');
@@ -204,6 +212,9 @@ async function runPageInitializer(href) {
     clean = clean.slice(SPA_BASE_PREFIX.length);
   }
   clean = clean.replace(/^\/+/, '').split(/[?#]/)[0] || 'index.html';
+  document.body.classList.toggle('simulador-page', clean === 'pages/simulador.html');
+  document.body.classList.toggle('base-fatores-page', clean === 'pages/base-fatores.html');
+  document.body.classList.toggle('pesquisa-page', clean === 'pages/pesquisa.html');
   const init = pageInitializers[clean];
   if (init) {
     try { await init(); }
@@ -218,17 +229,39 @@ async function runPageInitializer(href) {
   }
 }
 
-async function applyHeadResources(htmlText) {
+async function applyHeadResources(htmlText, pageUrl) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlText, 'text/html');
+  const targetUrl = new URL(pageUrl, window.location.href);
+  const pending = [];
+  const activeStyles = new Set();
   doc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-    const href = link.getAttribute('href');
-    if (href && !document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) {
+    const relativeHref = link.getAttribute('href');
+    if (!relativeHref) return;
+    const href = new URL(relativeHref, targetUrl).href;
+    activeStyles.add(href);
+    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')].find(item => item.href === href);
+    if (existing) {
+      existing.disabled = false;
+      // Mantém a mesma ordem de estilos declarada pela página.
+      document.head.appendChild(existing);
+    } else {
       const clone = link.cloneNode();
+      clone.href = href;
+      pending.push(new Promise((resolve, reject) => {
+        clone.onload = resolve;
+        clone.onerror = () => reject(new Error(`Falha ao carregar estilos: ${href}`));
+      }));
       document.head.appendChild(clone);
     }
   });
-  return [...doc.querySelectorAll('script[type="module"][src]')].map(s => s.getAttribute('src'));
+  await Promise.all(pending);
+  const appCssPrefix = new URL('css/', window.location.origin + SPA_BASE_PREFIX).href;
+  document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+    if (link.href.startsWith(appCssPrefix) && !activeStyles.has(link.href)) link.remove();
+  });
+  return [...doc.querySelectorAll('script[type="module"][src]')]
+    .map(s => new URL(s.getAttribute('src'), targetUrl).href);
 }
 
 export function iniciarSPA() {
@@ -240,11 +273,16 @@ export function iniciarSPA() {
     return path.replace(/index\.html$/, '').replace(/[^/]+$/, '');
   })();
   SPA_BASE_PREFIX = basePrefix;
+  // O pushState altera a resolução de URLs relativas; fixa as folhas iniciais.
+  document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+    link.href = new URL(link.getAttribute('href'), document.baseURI).href;
+  });
 
   const routes = {
     home: 'index.html',
     simulador: 'pages/simulador.html',
     base_fatores: 'pages/base-fatores.html',
+    fatores_do_dia: 'pages/fatores-do-dia.html',
     base_inss: 'pages/base-inss.html',
     base_credito: 'pages/base-credito-pessoal.html',
     base_outros_convenios: 'pages/base-outros-convenios.html',
@@ -291,7 +329,7 @@ export function iniciarSPA() {
       }
     }
 
-    const url = href.startsWith('http') || href.startsWith('file:') ? href : basePrefix + href.replace(/^\/+/, '');
+    const url = new URL(normalized, window.location.origin + basePrefix).href;
     const wrap = ensureWrap();
     const currentPanel = wrap.querySelector('.panel');
     await fadeOut(currentPanel);
@@ -300,12 +338,17 @@ export function iniciarSPA() {
       const res = await fetch(url, { cache: 'no-cache' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const html = await res.text();
-      const scriptsToLoad = await applyHeadResources(html);
+      const scriptsToLoad = await applyHeadResources(html, url);
 
       const temp = document.createElement('div');
       temp.innerHTML = html;
       const newWrap = temp.querySelector('.wrap');
       const newPanel = temp.querySelector('.panel');
+      if (newWrap) {
+        newWrap.querySelectorAll('img[src]').forEach(img => {
+          img.src = new URL(img.getAttribute('src'), new URL(url, window.location.href)).href;
+        });
+      }
 
       if (newWrap) {
         wrap.replaceWith(newWrap);
@@ -346,19 +389,20 @@ export function iniciarSPA() {
     sidebar.addEventListener('click', e => {
       const a = e.target.closest('a[data-nav]');
       if (!a) return;
-      e.preventDefault();
       const route = routes[a.dataset.nav];
       if (!route) return;
+      e.preventDefault();
       loadPage(route, true);
       sidebar.classList.remove('open');
     });
   }
 
   document.addEventListener('click', e => {
+    if (e.defaultPrevented) return;
     const a = e.target.closest('a[href]');
     if (!a) return;
     let href;
-    try { href = new URL(a.getAttribute('href'), window.location.origin); }
+    try { href = new URL(a.getAttribute('href'), document.baseURI); }
     catch { return; }
     if (href.origin !== window.location.origin) return;
     let path = href.pathname;
@@ -366,7 +410,7 @@ export function iniciarSPA() {
       path = path.slice(SPA_BASE_PREFIX.length);
     }
     path = path.replace(/^\/+/, '');
-    if (path === 'index.html' || /^pages\/.+\.html$/.test(path)) {
+    if (pageInitializers[path]) {
       e.preventDefault();
       loadPage(path, true);
       sidebar?.classList.remove('open');

@@ -1,10 +1,8 @@
-// Roteador leve de modos para manter compatibilidade com filtros.js
-// - Rápido: intercepta o clique e executa runRapido()
-// - Básico: intercepta e executa runBasico()
-// - Avançado: deixa filtros.js seguir normalmente
+// Roteador dos modos, reinicializável para cada entrada da Pesquisa pelo menu SPA.
+// Rápido e Avançado usam seus renderizadores existentes, sem mudar a elegibilidade.
 
 import { runRapido } from './rapido.js';
-import { runBasico } from './basico.js';
+import { runAvancado } from './avancado.js';
 
 const CFG = {
   resultsEl: '#results',
@@ -43,7 +41,7 @@ function bindModeSwitch() {
   document.querySelectorAll('input[name="modoPesquisa"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (!radio.checked) return;
-      mode = radio.value; // 'rapido' | 'basico' | 'avancado'
+      mode = radio.value; // 'rapido' | 'avancado'
       const results = document.querySelector(CFG.resultsEl);
       results?.classList.remove('grid-rapido');
       if (results) results.innerHTML = '';
@@ -68,18 +66,19 @@ function bindSearchRouter() {
       return;
     }
 
-    if (mode === 'basico') {
+    if (mode === 'avancado') {
       e.preventDefault();
-      runBasico(CFG);
+      runAvancado(CFG);
       e.stopPropagation();
       e.stopImmediatePropagation();
-      return;
     }
-    // modo "avancado": deixa o fluxo seguir para filtros.js
   }, { capture: true });
 }
 
-function initModosBridge() {
+export function initModosBridge() {
+  const panel = document.querySelector('.pesquisa-wrap');
+  if (!panel || panel.dataset.modosInicializados) return;
+  panel.dataset.modosInicializados = 'true';
   const def = document.querySelector('input[name="modoPesquisa"][value="rapido"]');
   if (def) def.checked = true;
   mode = 'rapido';

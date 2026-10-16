@@ -1,8 +1,9 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
 import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
 // /js/filtros/avancado.js
-// Modo AVANÇADO — mostra TODAS as seções + TODOS os prazos.
-// Se tiver filtro de idade, filtra os prazos por idade; senão, mostra tudo.
+// Modo AVANÇADO — filtra os bancos pelos controles selecionados e mostra
+// todas as seções dos bancos compatíveis.
+// Se tiver filtro de idade, também filtra os prazos exibidos por idade.
 // Nada de "muralha de sim/não": listas compactas ("chips") e prazos em grade.
 
 // ---------- Utils ----------
@@ -38,6 +39,101 @@ function idadeMatch(linha, idade){
   if(!rg) return false;
   return idade >= rg.min && idade <= rg.max;
 }
+
+const LOAS_PRAZOS_MAP = {
+  margem: [
+    { key: 'loas87Ranges', label: 'LOAS 87 - Margem' },
+    { key: 'loas88Ranges', label: 'LOAS 88 - Margem' }
+  ],
+  cartao: [
+    { key: 'loas87Cartao', label: 'LOAS 87 - Cartão' },
+    { key: 'loas88Cartao', label: 'LOAS 88 - Cartão' }
+  ],
+  refin: [
+    { key: 'loas87Refin', label: 'LOAS 87 - Refin' },
+    { key: 'loas88Refin', label: 'LOAS 88 - Refin' }
+  ],
+  port: [
+    { key: 'loas87Port', label: 'LOAS 87 - Portabilidade' },
+    { key: 'loas88Port', label: 'LOAS 88 - Portabilidade' }
+  ]
+};
+
+function produtoKeyMap(especie){
+  switch(especie){
+    case 'loas':      return {margem:'loasFazMargem', cartao:'loasFazCartao', refin:'loasFazRefin', port:'loasFazPortabilidade', saque:null};
+    case 'invalidez': return {margem:'invalidezFazMargem', cartao:'invalidezFazCartao', refin:'invalidezFazRefin', port:'invalidezFazPortabilidade', saque:null};
+    case 'pensao':    return {margem:'pensaoFazMargem', cartao:'pensaoFazCartao', refin:'pensaoFazRefin', port:'pensaoFazPortabilidade', saque:null};
+    default:          return {margem:'fazMargem', cartao:'fazCartao', refin:'fazRefin', port:'fazPortabilidade', saque:'fazSaqueComplementar'};
+  }
+}
+
+function prazosAccessor(b, especie, produto){
+  if(especie==='loas'){
+    return (LOAS_PRAZOS_MAP[produto]||[]).map(({key,label}) => ({
+      label,
+      linhas: Array.isArray(b[key]) ? b[key] : []
+    }));
+  }
+  if(especie==='invalidez'){
+    const map = { margem:'invalidezPrazos', cartao:'invalidezCartao', refin:'invalidezRefin', port:'invalidezPort' };
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label:null, linhas }] : [];
+  }
+  if(especie==='pensao'){
+    const map = { margem:'prazosPensao', cartao:'prazosPensaoCartao', refin:'prazosPensaoRefin', port:'prazosPensaoPort' };
+    const linhas = Array.isArray(b[map[produto]]) ? b[map[produto]] : [];
+    return linhas.length ? [{ label:null, linhas }] : [];
+  }
+  const map = { margem:'prazos', cartao:'prazosCartao', port:'prazosPortabilidade' };
+  const linhas = map[produto] ? (Array.isArray(b[map[produto]]) ? b[map[produto]] : []) : [];
+  return linhas.length ? [{ label:null, linhas }] : [];
+}
+
+function especieAssinaturaOK(b, especie, assina){
+  if(especie==='loas'){
+    if(!b.aceitaLoas) return false;
+    if(assina==='nao' && !(b.loasAceitaNaoAssina || b.aceitaClienteNaoAssina)) return false;
+    return true;
+  }
+  if(especie==='invalidez'){
+    if(!b.aceitaInvalidez) return false;
+    if(assina==='nao' && !b.aceitaClienteNaoAssina) return false;
+    return true;
+  }
+  if(especie==='pensao'){
+    if(!(b.aceitaClientePensao || b.fazPensao)) return false;
+    if(assina==='nao' && !(b.pensaoAceitaNaoAssina || b.aceitaClienteNaoAssina)) return false;
+    return true;
+  }
+  if(assina==='nao' && !b.aceitaClienteNaoAssina) return false;
+  return true;
+}
+
+function produtosOK(b, especie, prodsSel){
+  const map = produtoKeyMap(especie);
+  const requeridos = Object.entries(prodsSel).filter(([,v])=>!!v).map(([k])=>k);
+  if(!requeridos.length) return true;
+  return requeridos.every(p => {
+    const key = map[p];
+    return key ? !!b[key] : true;
+  });
+}
+
+function prazosPorIdade(b, especie, idade, prodsSel){
+  const selecionados = Object.entries(prodsSel).filter(([,v])=>!!v).map(([k])=>k);
+  const listar = selecionados.length ? selecionados : ['margem','cartao','refin','port','saque'];
+  const out = [];
+  for(const produto of listar){
+    const blocos = prazosAccessor(b, especie, produto);
+    for(const bloco of blocos){
+      const linhas = idade ? bloco.linhas.filter(linha => idadeMatch(linha, idade)) : bloco.linhas;
+      if(linhas.length) out.push({ produto, linhas, label: bloco.label });
+    }
+  }
+  return out;
+}
+
 function lerControles(controls){
   const idade = Number(document.querySelector(controls.idade)?.value || 0) || null;
   const especie = document.querySelector(controls.especie)?.value || 'geral';
@@ -55,8 +151,10 @@ function lerControles(controls){
 function filtraBancos(db, f){
   const source = Array.isArray(db) ? db.filter(b => !b.suspenso) : [];
   const base = source.filter(b=>{
-  if(f.nome && !String(b.nomeBanco||'').toLowerCase().includes(f.nome)) return false;
-    // no avançado não restringimos por "prods" ou "assinatura" — objetivo é visualizar tudo
+    if(f.nome && !String(b.nomeBanco||'').toLowerCase().includes(f.nome)) return false;
+    if(!especieAssinaturaOK(b, f.especie, f.assina)) return false;
+    if(!produtosOK(b, f.especie, f.prods)) return false;
+    if(f.idade && prazosPorIdade(b, f.especie, f.idade, f.prods).length===0) return false;
     return true;
   });
   base.sort((a,b)=> String(a.nomeBanco||'').localeCompare(String(b.nomeBanco||'')));

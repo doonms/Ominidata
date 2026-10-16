@@ -105,7 +105,7 @@ function produtosOK(b, especie, prodsSel){
   if(!requeridos.length) return true;
   return requeridos.every(p => {
     const key = map[p];
-    return key ? !!b[key] : true;
+    return key ? !!b[key] : false;
   });
 }
 function extractLoasTipo(label){
@@ -113,7 +113,7 @@ function extractLoasTipo(label){
   return match ? `LOAS ${match[1]}` : null;
 }
 
-function prazosPorIdade(b, especie, idade, prodsSel){
+export function prazosPorIdade(b, especie, idade, prodsSel){
   const selecionados = Object.entries(prodsSel).filter(([,v])=>!!v).map(([k])=>k);
   const listar = (selecionados.length ? selecionados : ['margem','cartao','refin','port','saque']);
   const out = [];
@@ -142,14 +142,18 @@ function lerControles(ctrls){
   };
   return { idade, especie, assina, nome, prods };
 }
-function aplicarFiltros(db, f){
+export function aplicarFiltros(db, f){
   const source = Array.isArray(db) ? db.filter(b => !b.suspenso) : [];
   const base = source.filter(b=>{
     if(f.nome && !String(b.nomeBanco||'').toLowerCase().includes(f.nome)) return false;
     if(!especieAssinaturaOK(b, f.especie, f.assina)) return false;
     if(!produtosOK(b, f.especie, f.prods)) return false;
-    const prazos = prazosPorIdade(b, f.especie, f.idade, f.prods);
-    if(f.idade && prazos.length===0) return false;
+    if(f.idade){
+      const selecionados = Object.keys(f.prods).filter(p => f.prods[p]);
+      if(selecionados.length){
+        if(!selecionados.every(p => prazosPorIdade(b, f.especie, f.idade, {[p]:true}).length)) return false;
+      } else if(prazosPorIdade(b, f.especie, f.idade, f.prods).length===0) return false;
+    }
     return true;
   });
   base.sort((a,b)=> String(a.nomeBanco||'').localeCompare(String(b.nomeBanco||'')));
