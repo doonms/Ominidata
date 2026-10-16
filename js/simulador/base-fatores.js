@@ -94,7 +94,7 @@ async function uploadBaseFatores(file, els) {
     const resultado = await enviarFatoresRemotos(baseFatores);
     if (!els.slBanco.isConnected) return;
     renderBaseFatores(resultado.linhas, els);
-    informarSincronizacao(`${resultado.quantidade} fatores confirmados no Supabase. Registros ausentes no arquivo foram mantidos. Seguros e logos continuam locais.`);
+    informarSincronizacao(`${resultado.quantidade} fatores confirmados no Supabase: ${resultado.inseridos} novos, ${resultado.atualizados} atualizados, ${resultado.mantidos} já estavam iguais. Os demais registros, seguros e logos foram mantidos.`);
     alert(`✅ ${resultado.quantidade} fatores enviados/atualizados e confirmados no Supabase. Os demais registros foram mantidos.`);
   } catch (error) {
     console.error('Erro ao enviar base:', error);

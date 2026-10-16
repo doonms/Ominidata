@@ -16,9 +16,15 @@ mensagem explicativa para não perder a identificação das tabelas.
 - **Importar JSON / Salvar neste navegador**: armazenamento local da mesma origem
   (protocolo, domínio e porta), não publica para outros usuários.
 - **Enviar base ao Supabase**: valida todo o arquivo e exige sessão autenticada.
-  Atualiza por ID os registros de mesmo banco/data/tipo/prazo/plano e insere os
-  novos em um único comando. Não apaga fatores ausentes no arquivo nem outros
+  Localiza registros de mesmo banco/data/tipo/prazo/plano e atualiza somente
+  fator/taxa com `UPDATE` filtrado por ID. Registros iguais não são regravados;
+  os novos são enviados em um lote de `INSERT`, **sem o campo ID**, para respeitar
+  colunas `GENERATED ALWAYS AS IDENTITY`. Não apaga fatores ausentes nem outros
   convênios. Renomear uma tabela importa um novo registro, sem excluir a antiga.
+- As atualizações e a inserção são requisições separadas, não uma transação do
+  arquivo inteiro. Se houver falha após alguma gravação confirmada, o sistema
+  informa envio parcial e a quantidade confirmada. Preserve o JSON e confira a
+  base; ao reenviar, os registros já iguais são mantidos sem duplicar ou trocar IDs.
 - As permissões de leitura, inserção e atualização continuam sendo controladas
   pelas políticas existentes do Supabase. Não use uma chave `service_role` no
   frontend nem libere escrita pública para contornar erros de acesso.

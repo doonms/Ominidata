@@ -35,10 +35,15 @@ function identidade(row) {
 }
 
 export function mensagemErroFatores(erro) {
+  let mensagem;
   if (erro?.code === '42501' || erro?.status === 401 || erro?.status === 403) {
-    return 'Sua sessão não tem permissão para acessar/gravar a Base de Fatores. Entre novamente e confira as permissões no Supabase.';
+    mensagem = 'Sua sessão não tem permissão para acessar/gravar a Base de Fatores. Entre novamente e confira as permissões no Supabase.';
+  } else {
+    mensagem = erro?.message || 'Não foi possível acessar a Base de Fatores. Confira sua conexão e sessão.';
   }
-  return erro?.message || 'Não foi possível acessar a Base de Fatores. Confira sua conexão e sessão.';
+  return erro?.confirmados > 0
+    ? `Envio parcial: ${erro.confirmados} fator${erro.confirmados === 1 ? '' : 'es'} com gravação confirmada. O envio não foi concluído; os demais não foram confirmados. ${mensagem}`
+    : mensagem;
 }
 
 // Valida o arquivo inteiro ANTES de qualquer escrita, sem descartar linhas inválidas silenciosamente.
@@ -171,24 +176,53 @@ export async function enviarFatoresRemotos(base) {
     if (porChave.has(chave)) throw new Error('A base remota contém tabelas duplicadas sem identificação distinta. Nenhum envio foi feito; revise os nomes das tabelas no banco.');
     porChave.set(chave, row);
   }
-  const payload = linhas.map(row => {
+  const novos = [];
+  const alteracoes = [];
+  let mantidos = 0;
+  for (const row of linhas) {
     const anterior = porChave.get(identidade(row));
     const novo = { ...row };
     if (anterior) {
       if (anterior.id == null) throw new Error('Um fator remoto está sem ID. Nenhum envio foi feito; confira a estrutura da tabela no Supabase.');
-      novo.id = anterior.id;
-      novo.banco = anterior.banco;
+      const taxaAnterior = anterior.taxa == null || anterior.taxa === '' ? null : parseNumeroCalculo(anterior.taxa);
+      if (parseNumeroCalculo(anterior.fator) === row.fator && taxaAnterior === row.taxa) {
+        mantidos++;
+      } else {
+        // ID apenas no filtro do UPDATE, nunca no conteúdo enviado para gravar.
+        alteracoes.push({ id: anterior.id, valores: { fator: row.fator, taxa: row.taxa } });
+      }
+    } else {
+      if (!temPlano) delete novo.plano;
+      novos.push(novo);
     }
-    if (!temPlano) delete novo.plano;
-    return novo;
-  });
-  // Um único comando: falha integralmente se alguma linha for recusada; nunca apaga a base.
-  const { data, error, count } = await supabase.from('base_fatores')
-    .upsert(payload, { onConflict: 'id', defaultToNull: false, count: 'exact' }).select('*');
-  if (error) throw error;
-  if (!Array.isArray(data) || count !== payload.length) {
-    throw new Error('O Supabase não confirmou todos os registros. Confira a base antes de tentar novamente.');
   }
-  // O retorno de linhas pode ser limitado pelo max_rows do projeto; a contagem é do lote inteiro.
-  return { linhas, quantidade: count };
+  let atualizados = 0;
+  let inseridos = 0;
+  try {
+    for (const alteracao of alteracoes) {
+      const { data, error, count } = await supabase.from('base_fatores')
+        .update(alteracao.valores, { count: 'exact' }).eq('id', alteracao.id).select('id');
+      if (error) throw error;
+      if (count !== 1 || !Array.isArray(data) || data.length !== 1 || String(data[0].id) !== String(alteracao.id)) {
+        throw new Error('O Supabase não confirmou a atualização de um fator existente. Confira as permissões de atualização e tente novamente.');
+      }
+      atualizados++;
+    }
+    if (novos.length) {
+      // INSERT sem ID: funciona também com GENERATED ALWAYS AS IDENTITY.
+      const { data, error, count } = await supabase.from('base_fatores')
+        .insert(novos, { count: 'exact' }).select('id');
+      if (error) throw error;
+      // A contagem confirma o lote inteiro mesmo quando max_rows limita as linhas retornadas.
+      if (!Array.isArray(data) || count !== novos.length) {
+        throw new Error('O Supabase não confirmou todos os fatores novos. Confira a base antes de tentar novamente.');
+      }
+      inseridos = count;
+    }
+  } catch (error) {
+    const falha = new Error(mensagemErroFatores(error), { cause: error });
+    falha.confirmados = atualizados + inseridos;
+    throw falha;
+  }
+  return { linhas, quantidade: mantidos + atualizados + inseridos, mantidos, atualizados, inseridos };
 }

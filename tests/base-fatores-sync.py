@@ -15,21 +15,27 @@ export const supabase = {
   auth: { getUser: async () => ({data:{user: window.__qaSemSessao ? null : {email:'dominicplf@gmail.com'}}, error:null}) },
   from(table) {
     const query = {
-      columns: '*', first:0, last:999999, mode:'read',
+      columns: '*', first:0, last:999999, mode:'read', filters:[],
       select(columns='*') { this.columns=columns; return this; },
-      order() { return this; }, eq() { return this; },
+      order() { return this; }, eq(column,value) { this.filters.push([column,value]); return this; },
       limit(n) { this.last=n-1; return this; },
       range(first,last) { this.first=first; this.last=last; return this; },
       delete() { throw new Error('PROIBIDO apagar a base'); },
       upsert(rows,options) { this.mode='write'; this.payload=rows; this.options=options; return this; },
+      insert(rows,options) { this.mode='insert'; this.payload=rows; this.options=options; return this; },
+      update(row,options) { this.mode='update'; this.payload=[row]; this.options=options; return this; },
       then(resolve,reject) {
         const run = async () => {
           if(table!=='base_fatores') return {data:[],error:null};
-          if(this.mode==='write') {
-            window.__qaWrites.push({rows:this.payload,options:this.options});
-            if(window.__qaFalhaEnvio) return {data:null,error:{code:'42501',message:'Permissão negada'}};
+          if(['write','insert','update'].includes(this.mode)) {
+            window.__qaWrites.push({method:this.mode,rows:this.payload,options:this.options,filters:this.filters});
+            if(this.payload.some(row => row.id != null)) return {data:null,error:{code:'428C9',message:'cannot insert a non-DEFAULT value into column "id"'}};
+            if(window.__qaFalhaEnvio || window.__qaFalharNaGravacao===window.__qaWrites.length) return {data:null,error:{code:'42501',message:'Permissão negada'}};
             const next=structuredClone(window.__qaRows);
-            const saved=this.payload.map(row=> {
+            const saved=this.mode==='update'
+              ? (window.__qaAtualizacaoInvisivel ? [] : next.filter(row=>this.filters.every(([col,value])=>row[col]===value)))
+                .map(row=>Object.assign(row,this.payload[0]))
+              : this.payload.map(row=> {
               const copy={...row};
               if(copy.id==null) copy.id=Math.max(0,...next.map(r=>r.id))+1;
               const idx=next.findIndex(r=>r.id===copy.id);
@@ -120,14 +126,61 @@ def main():
         assert page.evaluate('window.__qaRows.length') == 4
         assert page.evaluate("window.__qaRows.find(r=>r.plano==='Tabela A' && r.banco==='BancodoBrasil').id") == 1
         assert page.evaluate('window.__qaWrites.length') == 1
-        assert page.evaluate('window.__qaWrites[0].options') == dict(onConflict='id', defaultToNull=False, count='exact')
+        assert page.evaluate('window.__qaWrites[0].options') == dict(count='exact')
+        assert page.evaluate('window.__qaWrites[0].method') == 'insert'
+        assert page.evaluate("window.__qaWrites.every(w=>w.rows.every(r=>!Object.hasOwn(r,'id')))")
         upload(page, FATORES)
         expect(page.locator('#bf-sync-status')).to_contain_text('3 fatores confirmados')
         assert page.evaluate('window.__qaRows.length') == 4
+        assert page.evaluate('window.__qaWrites.length') == 1
         assert page.evaluate("JSON.parse(localStorage.getItem('ominidata_base_fatores_v1')).BancodoBrasil.seguros.length") == 1
         assert not errors, errors
         context.close()
-        print('PASS: um lote por envio, reenvio sem duplicar, preserva outros bancos/IDs e seguros locais')
+        print('PASS: INSERT sem ID, reenvio igual sem gravar de novo, preserva outros bancos/IDs e seguros locais')
+
+        context, page, errors, dialogs = fresh(rows=[row(fator=0.01), row(id=80, banco='Outro banco')])
+        expect(page.locator('#bf-sync-status')).to_contain_text('2 fatores consultados')
+        upload(page, FATORES)
+        expect(page.locator('#bf-sync-status')).to_contain_text('3 fatores confirmados')
+        assert page.evaluate('window.__qaRows.length') == 4
+        writes = page.evaluate('window.__qaWrites')
+        assert [w['method'] for w in writes] == ['update', 'insert'], writes
+        assert writes[0]['filters'] == [['id', 1]]
+        assert writes[0]['rows'] == [dict(fator=0.02, taxa=1.7)]
+        assert all('id' not in r for w in writes for r in w['rows'])
+        assert page.evaluate('window.__qaRows.find(r=>r.id===1).fator') == 0.02
+        assert page.evaluate('window.__qaRows.find(r=>r.id===80).fator') == 0.02
+        assert not errors, errors
+        context.close()
+        print('PASS: banco com ID GENERATED ALWAYS aceita UPDATE por filtro e INSERT sem ID no mesmo envio')
+
+        context, page, errors, dialogs = fresh(rows=[row(fator=0.01)], __qaAtualizacaoInvisivel=True)
+        expect(page.locator('#bf-sync-status')).to_contain_text('1 fatores consultados')
+        upload(page, FATORES)
+        expect(page.locator('#bf-sync-status')).to_contain_text('não confirmou a atualização')
+        assert page.evaluate('window.__qaRows.length') == 1
+        assert page.evaluate('window.__qaRows[0].fator') == 0.01
+        assert page.evaluate('window.__qaWrites.length') == 1
+        assert '✅' not in dialogs[-1]
+        assert not errors, errors
+        context.close()
+        print('PASS: UPDATE com zero linhas confirmadas interrompe o envio e não anuncia sucesso')
+
+        context, page, errors, dialogs = fresh(rows=[row(fator=0.01)], __qaFalharNaGravacao=2)
+        expect(page.locator('#bf-sync-status')).to_contain_text('1 fatores consultados')
+        upload(page, FATORES)
+        expect(page.locator('#bf-sync-status')).to_contain_text('Envio parcial: 1 fator com gravação confirmada')
+        assert page.evaluate('window.__qaRows.length') == 1
+        assert page.evaluate('window.__qaRows[0].fator') == 0.02
+        assert 'Envio parcial' in dialogs[-1] and '✅' not in dialogs[-1]
+        page.evaluate('window.__qaFalharNaGravacao=0')
+        upload(page, FATORES)
+        expect(page.locator('#bf-sync-status')).to_contain_text('3 fatores confirmados')
+        assert page.evaluate('window.__qaRows.length') == 3
+        assert page.evaluate('window.__qaRows.find(r=>r.id===1).fator') == 0.02
+        assert not errors, errors
+        context.close()
+        print('PASS: falha após UPDATE informa envio parcial; reenvio conclui sem duplicar nem trocar ID')
 
         context, page, errors, dialogs = fresh(rows=[row()], __qaFalhaEnvio=True)
         expect(page.locator('#bf-sync-status')).to_contain_text('1 fatores consultados')
