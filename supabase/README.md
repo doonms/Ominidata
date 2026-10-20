@@ -2,6 +2,25 @@
 
 ## Preparação do banco
 
+A aplicação não divide mais fatores por datas. O formato atual é
+`Banco.fatores = { margem: [...], cartao: [...] }`. O editor não tem calendário
+nem remoção automática por antiguidade; as simulações usam essas mesmas listas.
+
+JSONs e caches antigos continuam aceitos. As versões são unificadas por
+modalidade, prazo e nome da tabela: para a mesma tabela vence a versão da data
+mais recente; tabelas distintas presentes apenas em datas antigas também são
+preservadas. Antes de converter o cache, o original fica em
+`localStorage.ominidata_base_fatores_antes_unificar_datas_v1` (`criadoEm`, `bancos`).
+Essa cópia não é sobrescrita nas próximas aberturas.
+
+Datas antigas no Supabase servem apenas para escolher a versão anterior mais
+recente de uma tabela. A identidade de leitura/envio agora é banco, modalidade,
+prazo e nome. O app atualiza o ID da versão escolhida e não apaga registros antigos.
+Projetos cuja coluna `data` ainda existe recebem `1970-01-01` apenas nos
+novos INSERTs, como compatibilidade técnica com NOT NULL; a data não é usada
+para dividir, editar ou exportar a base. Projetos sem essa coluna também são
+aceitos. Não é necessário apagar a coluna ou executar uma migração destrutiva.
+
 No projeto Supabase configurado em `js/supa/supabaseClient.js`, abra **SQL Editor**
 e execute `migrations/20261016_base_fatores_plano.sql` uma vez. O script adiciona
 somente a coluna `plano`, para distinguir tabelas com o mesmo prazo; pode ser
@@ -19,14 +38,14 @@ parcialmente nem têm seus vínculos descartados.
 
 ## Vincular fatores de tabelas
 
-Em **Vincular fator**, escolha outra tabela do mesmo banco, data e modalidade
+Em **Vincular fator**, escolha outra tabela do mesmo banco e modalidade
 e confirme. A tabela passa a usar o fator da escolhida; se os fatores forem
 diferentes, uma confirmação avisa antes de substituir o valor. Outras tabelas
 podem entrar no mesmo grupo. Não há vínculos automáticos por igualdade de fator.
 
 - Editar o fator de qualquer membro atualiza os outros membros do grupo.
-- Nome, taxa e prazo permanecem independentes. Outra data, banco ou modalidade
-  não é alterada, inclusive ao copiar as condições para uma nova data.
+- Nome, taxa e prazo permanecem independentes. Outro banco ou modalidade
+  não é alterado.
 - **Desvincular esta tabela** conserva o fator atual, que pode ser editado sozinho.
 - Vínculos ficam no navegador e no JSON exportado. Exporte e envie o JSON para
   publicar fatores e vínculos para os demais usuários no Supabase.
@@ -40,7 +59,7 @@ podem entrar no mesmo grupo. Não há vínculos automáticos por igualdade de fa
 - **Importar JSON / Salvar neste navegador**: armazenamento local da mesma origem
   (protocolo, domínio e porta), não publica para outros usuários.
 - **Enviar base ao Supabase**: valida todo o arquivo e exige sessão autenticada.
-  Localiza registros de mesmo banco/data/tipo/prazo/plano e atualiza somente
+  Localiza registros de mesmo banco/tipo/prazo/plano e atualiza somente
   fator/taxa e o vínculo explícito com `UPDATE` filtrado por ID. Registros iguais não são regravados;
   os novos são enviados em um lote de `INSERT`, **sem o campo ID**, para respeitar
   colunas `GENERATED ALWAYS AS IDENTITY`. Não apaga fatores ausentes nem outros
@@ -69,6 +88,7 @@ Com Playwright e Chrome disponíveis:
 
 ```text
 python tests/base-fatores-sync.py
+python tests/base-fatores-sem-datas.py
 python tests/base-fatores-vinculos.py
 python tests/simulador-fluxo.py
 python tests/navegacao-paginas.py

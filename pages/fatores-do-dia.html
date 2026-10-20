@@ -44,10 +44,6 @@
           <img id="bf-logoBanco" alt="Logo do banco selecionado"/>
         </div>
 
-        <div class="grp">
-          <label for="bf-data">Data dos fatores</label>
-          <input type="date" id="bf-data"/>
-        </div>
 
         <!-- SWITCHES -->
         <div class="grp" style="margin-top:10px">
@@ -72,7 +68,6 @@
           <button id="bf-salvarBanco" class="primary">Salvar banco</button>
           <button id="bf-importarBanco" class="secondary">Importar JSON</button>
           <button id="bf-exportarBanco" class="secondary">Exportar JSON</button>
-          <button id="bf-limparAntigos" class="danger">Limpar fatores antigos (30d)</button>
         </div>
       </aside>
 
@@ -83,7 +78,6 @@
           <div class="card-title" style="display:flex; align-items:center; justify-content:space-between;">
             <div>
               <strong>INSS - Fatores</strong>
-              <span id="bf-infoData" class="small muted" style="margin-left:8px"></span>
             </div>
           </div>
 
@@ -122,8 +116,6 @@
       els: {
         slBanco: '#bf-slBanco',
         logo: '#bf-logoBanco',
-        data: '#bf-data',
-        infoData: '#bf-infoData',
         swMargem: '#bf-swMargem',
         swCartao: '#bf-swCartao',
         blocoMargem: '#bf-blocoMargem',
@@ -139,7 +131,6 @@
         btnSalvar: '#bf-salvarBanco',
         btnImportar: '#bf-importarBanco',
         btnExportar: '#bf-exportarBanco',
-        btnLimparAntigos: '#bf-limparAntigos',
         buscaBanco: '#bf-buscaBanco'
       }
     });

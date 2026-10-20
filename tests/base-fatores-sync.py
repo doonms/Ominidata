@@ -30,6 +30,7 @@ export const supabase = {
           if(['write','insert','update'].includes(this.mode)) {
             window.__qaWrites.push({method:this.mode,rows:this.payload,options:this.options,filters:this.filters});
             if(this.payload.some(row => row.id != null)) return {data:null,error:{code:'428C9',message:'cannot insert a non-DEFAULT value into column "id"'}};
+            if(this.mode==='insert' && window.__qaExigirData && this.payload.some(row=>row.data==null)) return {data:null,error:{code:'23502',message:'data NOT NULL'}};
             if(window.__qaFalhaEnvio || window.__qaFalharNaGravacao===window.__qaWrites.length) return {data:null,error:{code:'42501',message:'Permissão negada'}};
             const next=structuredClone(window.__qaRows);
             const saved=this.mode==='update'
@@ -50,6 +51,9 @@ export const supabase = {
             : {data:[],error:null};
           if(this.columns==='grupo_fator') return window.__qaSemVinculos
             ? {data:null,error:{code:'42703',message:'column base_fatores.grupo_fator does not exist'}}
+            : {data:[],error:null};
+          if(this.columns==='data') return window.__qaSemData
+            ? {data:null,error:{code:'42703',message:'column base_fatores.data does not exist'}}
             : {data:[],error:null};
           window.__qaRanges.push([this.first,this.last]);
           const snapshot=structuredClone(window.__qaRows);
@@ -117,7 +121,7 @@ def main():
         assert not page.evaluate('window.__qaWrites.length')
         assert 'migrations/20261016_base_fatores_plano.sql' in dialogs[-1]
         assert 'sucesso' not in dialogs[-1]
-        assert page.evaluate("JSON.parse(localStorage.getItem('ominidata_base_fatores_v1')).BancodoBrasil.fatores['2026-10-16'].margem[1].plano") == 'Tabela B'
+        assert page.evaluate("JSON.parse(localStorage.getItem('ominidata_base_fatores_v1')).BancodoBrasil.fatores.margem[1].plano") == 'Tabela B'
         assert not errors, errors
         context.close()
         print('PASS: schema antigo bloqueia nomes sem perda; arquivo permanece local e orienta SQL')
@@ -264,15 +268,15 @@ def main():
           return {merged,legado,local,auth,writes:window.__qaWrites.length};
         }""")
         assert len(result['merged']['Banco']['fatores']) == 2
-        assert len(result['merged']['Banco']['fatores']['2026-10-16']['margem']) == 2
+        assert len(result['merged']['Banco']['fatores']['margem']) == 3
         assert result['merged']['Banco']['seguros'] == [dict(nome='Seguro')]
         assert result['merged']['Banco']['logo'] == 'banco.png'
         assert len(result['local']['Banco']['fatores']['2026-10-16']['margem']) == 1
-        assert len(result['legado']['Banco']['fatores']['2026-10-16']['margem']) == 2
+        assert len(result['legado']['Banco']['fatores']['margem']) == 3
         assert 'Entre novamente' in result['auth'] and result['writes'] == 0
         assert not errors, errors
         context.close()
-        print('PASS: importação parcial mantém datas/tabelas/metadados, legado mantém nome local e sessão ausente não grava')
+        print('PASS: importação parcial unifica datas sem perder tabelas/metadados, legado mantém nome local e sessão ausente não grava')
 
         context, page, errors, dialogs = fresh()
         expect(page.locator('#bf-sync-status')).to_contain_text('não retornou fatores')
@@ -304,17 +308,17 @@ def main():
         corrompido = row()
         corrompido['data'] = None
         context, page, errors, dialogs = fresh(rows=[corrompido])
-        expect(page.locator('#bf-sync-status')).to_contain_text('Data de fatores inválida')
+        expect(page.locator('#bf-sync-status')).to_contain_text('1 fatores consultados')
         expect(page.locator('#bf-slBanco')).to_have_value('BancodoBrasil')
         page.goto(base + '/pages/simulador.html')
-        expect(page.locator('#sim-base-status')).to_contain_text('Data de fatores inválida')
+        expect(page.locator('#sim-base-status')).to_contain_text('consultados no Supabase')
         page.locator('label:has(#modoParcela)').click()
         page.locator('#inpValorDesejado').fill('5000')
         page.locator('#inpFatorManual').fill('0,02')
         expect(page.locator('#resParcela')).to_contain_text('100,00')
         assert not errors, errors
         context.close()
-        print('PASS: registro remoto com data inválida não derruba páginas nem apaga o cache')
+        print('PASS: registro remoto sem data é aceito e não derruba páginas nem apaga o cache')
         browser.close()
     server.shutdown()
 

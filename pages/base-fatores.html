@@ -44,7 +44,7 @@
         <section class="bf-sidebar-card">
           <div class="bf-section-heading">
             <span class="bf-step">1</span>
-            <div><strong>Banco e vigência</strong><small>Selecione onde deseja trabalhar</small></div>
+            <div><strong>Banco</strong><small>Selecione onde deseja trabalhar</small></div>
           </div>
 
           <div class="grp bf-field">
@@ -61,10 +61,6 @@
             <img id="bf-logoBanco" alt="Logo do banco selecionado"/>
           </div>
 
-          <div class="grp bf-field">
-            <label for="bf-data">Data dos fatores</label>
-            <input type="date" id="bf-data"/>
-          </div>
         </section>
 
         <section class="bf-sidebar-card">
@@ -99,7 +95,6 @@
             <button id="bf-exportarBanco" class="secondary">Exportar JSON</button>
             <button id="bf-removerBanco" class="danger">Remover banco</button>
           </div>
-          <button id="bf-limparAntigos" class="danger bf-maintenance-action">Limpar fatores com mais de 30 dias</button>
         </section>
       </aside>
 
@@ -162,11 +157,10 @@
               <strong>INSS — Prazos e fatores</strong>
               <small>Cadastre as condições vigentes para cada modalidade.</small>
             </div>
-            <span id="bf-infoData" class="bf-date-badge"></span>
           </div>
 
           <!-- BLOCO MARGEM -->
-          <p class="bf-link-help">Use “Vincular fator” em uma tabela para compartilhar apenas o fator com outras do mesmo banco, data e modalidade. Nomes, taxas e prazos continuam independentes.</p>
+          <p class="bf-link-help">Use “Vincular fator” em uma tabela para compartilhar apenas o fator com outras do mesmo banco e modalidade. Nomes, taxas e prazos continuam independentes.</p>
           <p id="bf-vinculos-status" class="bf-link-feedback" role="status" aria-live="polite"></p>
           <div id="bf-blocoMargem" class="factor-block">
             <div class="bf-block-heading">
@@ -221,8 +215,6 @@
       els: {
         slBanco: '#bf-slBanco',
         logo: '#bf-logoBanco',
-        data: '#bf-data',
-        infoData: '#bf-infoData',
         swMargem: '#bf-swMargem',
         swCartao: '#bf-swCartao',
         blocoMargem: '#bf-blocoMargem',
@@ -238,7 +230,6 @@
         btnSalvar: '#bf-salvarBanco',
         btnImportar: '#bf-importarBanco',
         btnExportar: '#bf-exportarBanco',
-        btnLimparAntigos: '#bf-limparAntigos',
         buscaBanco: '#bf-buscaBanco',
         calcParcela: '#bf-calcParcela',
         calcFator: '#bf-calcFator',

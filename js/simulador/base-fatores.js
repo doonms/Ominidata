@@ -4,13 +4,13 @@ import { carregarFatoresRemotos, enviarFatoresRemotos, mesclarFatoresRemotos,
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { parseNumeroCalculo } from './calculadora-fator.js';
 import { tabelasVinculadas, vincularFator, atualizarFatorVinculado, desvincularFator } from './vinculos-fatores.js';
+import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
 // === Base de Fatores (Simulador Limpo) ===
-// Controle de INSS, margem/cartão, seguros e calendário.
+// Controle de INSS, margem/cartão e seguros, sem divisão por datas.
 
 let state = {
   bancos: {},
   bancoAtual: null,
-  dataAtual: null,
   keyStorage: BASE_FATORES_KEY,
   lastSave: null,
   filtroBanco: ""
@@ -35,8 +35,6 @@ function guardarBackupLocal() {
 const DEFAULT_SELECTORS = {
   slBanco: '#bf-slBanco',
   logo: '#bf-logoBanco',
-  data: '#bf-data',
-  infoData: '#bf-infoData',
   swMargem: '#bf-swMargem',
   swCartao: '#bf-swCartao',
   blocoMargem: '#bf-blocoMargem',
@@ -52,7 +50,6 @@ const DEFAULT_SELECTORS = {
   btnSalvar: '#bf-salvarBanco',
   btnImportar: '#bf-importarBanco',
   btnExportar: '#bf-exportarBanco',
-  btnLimparAntigos: '#bf-limparAntigos',
   buscaBanco: '#bf-buscaBanco',
   calcParcela: '#bf-calcParcela',
   calcFator: '#bf-calcFator',
@@ -106,6 +103,15 @@ export function initBaseFatores(cfg = {}) {
   const uploadBtn = document.getElementById('uploadBaseBtn');
   const uploadInput = document.getElementById('uploadBaseFile');
 
+  if (!loadState()) {
+    // Sem backup confirmado não sobrescrevemos a base antiga.
+    if (els.btnExportar) els.btnExportar.onclick = exportarJSON;
+    [uploadBtn, els.btnSalvar, els.btnNovo, els.btnRemover, els.btnImportar].forEach(botao => {
+      if (botao) botao.disabled = true;
+    });
+    return;
+  }
+
   // 🔘 Evento do botão
   if (uploadBtn && uploadInput) {
     uploadBtn.onclick = () => uploadInput.click();
@@ -116,9 +122,6 @@ export function initBaseFatores(cfg = {}) {
       event.target.value = '';
     };
   }
-
-  // Carregar do localStorage
-  loadState();
 
   // preencher select de bancos
   const nomes = renderBancoSelect(els);
@@ -131,12 +134,10 @@ export function initBaseFatores(cfg = {}) {
   if (els.btnSalvar) els.btnSalvar.onclick = () => salvarTudo();
   if (els.btnImportar) els.btnImportar.onclick = () => importarJSON(els);
   if (els.btnExportar) els.btnExportar.onclick = () => exportarJSON();
-  if (els.data) els.data.onchange = () => mudarData(els);
   if (els.swMargem) els.swMargem.onchange = () => toggleMargem(els);
   if (els.swCartao) els.swCartao.onchange = () => toggleCartao(els);
   if (els.addPrazoMargem) els.addPrazoMargem.onclick = () => addPrazo(els, "margem");
   if (els.addPrazoCartao) els.addPrazoCartao.onclick = () => addPrazo(els, "cartao");
-  if (els.btnLimparAntigos) els.btnLimparAntigos.onclick = limparAntigos;
   if (els.buscaBanco) els.buscaBanco.oninput = () => filtrarBancos(els);
 
   initCalculadoraManual(els);
@@ -165,11 +166,19 @@ function loadState() {
   state.keyStorage = BASE_FATORES_KEY;
   const data = readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS);
   if (data && typeof data === "object" && !Array.isArray(data)) {
-    state.bancos = Object.fromEntries(Object.entries(data).filter(([, banco]) => banco?.fatores));
-    writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
+    try {
+      preservarBackupFatoresDatados(data);
+      state.bancos = normalizarBaseFatores(data);
+      writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
+    } catch (error) {
+      state.bancos = data;
+      informarSincronizacao(`Não foi possível converter a base com segurança. Os dados originais foram mantidos. Exporte o JSON antes de liberar espaço no navegador ou corrigir o arquivo. ${error.message}`, true);
+      return false;
+    }
   } else {
     state.bancos = {};
   }
+  return true;
 }
 
 function saveState() {
@@ -229,7 +238,7 @@ function selectBanco(els) {
     return;
   }
   if (!state.bancos[nome]) {
-    state.bancos[nome] = { fatores: {}, seguros: [] };
+    state.bancos[nome] = { fatores: novaEstrutura(), seguros: [] };
   }
   const b = state.bancos[nome];
   renderBanco(b, els);
@@ -249,29 +258,16 @@ function renderBaseFatores(baseFatoresRows, els) {
 function renderBanco(b, els) {
   if (els.btnRemover) els.btnRemover.disabled = false;
   atualizarLogo(els, state.bancoAtual);
-  let data = state.dataAtual;
-  if (!data || !b.fatores[data]) {
-    const ultima = getUltimaData(b);
-    if (ultima) {
-      data = ultima;
-    } else {
-      data = getHojeISO();
-      if (!b.fatores[data]) b.fatores[data] = novaEstrutura();
-      saveState();
-    }
-  }
-  els.data.value = data;
-  state.dataAtual = data;
-  els.infoData.textContent = `Data: ${data}`;
-  aplicarSwitchesBanco(b, els, data);
+  b.fatores ??= novaEstrutura();
+  aplicarSwitchesBanco(b, els);
   renderFatores(b, els);
   renderSeguros(b, els);
 }
 
-function aplicarSwitchesBanco(b, els, data) {
+function aplicarSwitchesBanco(b, els) {
   if (!b) return;
   if (!els.swMargem && !els.swCartao) return;
-  const fatores = b.fatores?.[data] || novaEstrutura();
+  const fatores = b.fatores || novaEstrutura();
   const fazMargem = b.hasOwnProperty("fazMargem")
     ? !!b.fazMargem
     : (fatores.margem?.length ?? 0) > 0;
@@ -295,7 +291,7 @@ function novoBanco(els) {
   nome = nome.trim();
   if (!nome) return;
   if (state.bancos[nome]) return alert("Banco ja existe");
-  state.bancos[nome] = { fatores: {}, seguros: [] };
+  state.bancos[nome] = { fatores: novaEstrutura(), seguros: [] };
   saveState();
   state.filtroBanco = "";
   if (els.buscaBanco) els.buscaBanco.value = "";
@@ -303,21 +299,6 @@ function novoBanco(els) {
   syncBancoSelecionado(els, nomes);
   els.slBanco.value = nome;
   selectBanco(els);
-}
-
-function mudarData(els) {
-  const d = els.data.value;
-  if (!d) return;
-  state.dataAtual = d;
-  const b = getBancoAtual();
-  if (!b.fatores[d]) {
-    // clonar da data mais recente
-    const ult = getUltimaData(b);
-    if (ult) b.fatores[d] = JSON.parse(JSON.stringify(b.fatores[ult]));
-    else b.fatores[d] = novaEstrutura();
-  }
-  aplicarSwitchesBanco(b, els, d);
-  renderFatores(b, els);
 }
 
 function toggleMargem(els) {
@@ -342,28 +323,24 @@ function toggleCartao(els) {
 
 function addPrazo(els, tipo) {
   const b = getBancoAtual();
-  const d = state.dataAtual;
-  if (!b.fatores[d]) b.fatores[d] = novaEstrutura();
-  const arr = b.fatores[d][tipo];
+  const arr = b.fatores[tipo];
   arr.push({ prazo: "", fator: "", taxa: "", plano: "" });
   renderFatores(b, els);
+  saveState();
 }
 
 function renderFatores(b, els) {
-  const d = state.dataAtual;
-  if (!b.fatores[d]) b.fatores[d] = novaEstrutura();
-
   const m = els.listaPrazosMargem;
   const c = els.listaPrazosCartao;
   m.innerHTML = "";
   c.innerHTML = "";
 
-  b.fatores[d].margem.forEach((f, i) => m.appendChild(renderLinhaPrazo(f, i, "margem", b, els)));
-  b.fatores[d].cartao.forEach((f, i) => c.appendChild(renderLinhaPrazo(f, i, "cartao", b, els)));
+  b.fatores.margem.forEach((f, i) => m.appendChild(renderLinhaPrazo(f, i, "margem", b, els)));
+  b.fatores.cartao.forEach((f, i) => c.appendChild(renderLinhaPrazo(f, i, "cartao", b, els)));
 }
 
 function renderLinhaPrazo(f, idx, tipo, b, els) {
-  const lista = b.fatores[state.dataAtual][tipo];
+  const lista = b.fatores[tipo];
   const div = document.createElement("div");
   div.className = "factor-row";
   if (typeof f.taxa !== "string") f.taxa = f.taxa != null ? String(f.taxa) : "";
@@ -440,7 +417,7 @@ function renderVinculoFator(f, lista, b, els) {
   const info = document.createElement('p');
   info.textContent = vinculadas.length > 1
     ? `Compartilha o fator com: ${vinculadas.filter(item => item !== f).map(item => item.plano || item.tabela || `Tabela ${lista.indexOf(item) + 1}`).join(', ')}. Nome, taxa e prazo são independentes.`
-    : 'Escolha outra tabela desta modalidade e data. Esta tabela passará a usar o fator da escolhida.';
+    : 'Escolha outra tabela desta modalidade. Esta tabela passará a usar o fator da escolhida.';
   const label = document.createElement('label');
   label.textContent = 'Vincular esta tabela a';
   const select = document.createElement('select');
@@ -611,7 +588,7 @@ function exportarJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `base-fatores-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = 'base-fatores.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -622,34 +599,12 @@ function salvarTudo() {
   alert("Salvo neste navegador. Para publicar, exporte o JSON e use Enviar base ao Supabase.");
 }
 
-function limparAntigos() {
-  const hoje = new Date();
-  Object.values(state.bancos).forEach(b => {
-    Object.keys(b.fatores).forEach(d => {
-      const diff = (hoje - new Date(d)) / (1000 * 60 * 60 * 24);
-      if (diff > 30) delete b.fatores[d];
-    });
-  });
-  saveState();
-  alert("Fatores antigos removidos (>30 dias)");
-}
-
 function getBancoAtual() { return state.bancos[state.bancoAtual]; }
-
-function getUltimaData(b) {
-  const datas = Object.keys(b.fatores).sort((a, b) => new Date(b) - new Date(a));
-  return datas[0];
-}
 
 function getBancosFiltrados() {
   const nomes = Object.keys(state.bancos).sort((a, b) => a.localeCompare(b, "pt-BR"));
   if (!state.filtroBanco) return nomes;
   return nomes.filter(nome => normalizarTexto(nome).includes(state.filtroBanco));
-}
-
-function getHojeISO() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
 }
 
 async function carregarBaseFatoresRemota(els) {
@@ -724,9 +679,6 @@ function criarSlugLogo(nome) {
 }
 
 function limparInterface(els) {
-  els.data.value = "";
-  state.dataAtual = null;
-  els.infoData.textContent = "";
   els.listaPrazosMargem.innerHTML = "";
   els.listaPrazosCartao.innerHTML = "";
   els.listaSeguros.innerHTML = "";

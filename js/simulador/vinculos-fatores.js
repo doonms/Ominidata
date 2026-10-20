@@ -1,6 +1,6 @@
 import { parseNumeroCalculo } from './calculadora-fator.js';
 
-// A lista recebida deve pertencer ao mesmo banco, data e modalidade.
+// A lista recebida deve pertencer ao mesmo banco e modalidade.
 export function tabelasVinculadas(lista, tabela) {
   return tabela.grupo_fator
     ? lista.filter(item => item.grupo_fator === tabela.grupo_fator)

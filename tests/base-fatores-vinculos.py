@@ -103,17 +103,17 @@ def main():
             tabela(page, 0).locator('.fator').fill('0.03')
             assert page.locator('#bf-listaPrazosMargem .fator').evaluate_all('els=>els.map(e=>e.value)') == ['0.03', '0.03', '0.03', '0.04']
             original = FATORES['Banco Teste']['fatores'][DATA]
-            actual = cache(page)['Banco Teste']['fatores'][DATA]
+            actual = cache(page)['Banco Teste']['fatores']
             assert [i['plano'] for i in actual['margem']] == [i['plano'] for i in original['margem']]
             assert [i['prazo'] for i in actual['margem']] == [i['prazo'] for i in original['margem']]
             assert [i['taxa'] for i in actual['margem']] == [i['taxa'] for i in original['margem']]
             assert actual['cartao'] == original['cartao']
-            assert cache(page)['Outro Banco'] == FATORES['Outro Banco']
+            assert cache(page)['Outro Banco']['fatores']['margem'] == FATORES['Outro Banco']['fatores'][DATA]['margem']
             tabela(page, 1).locator('.fator').fill('')
             expect(page.locator('#bf-vinculos-status')).to_contain_text('foram mantidos')
             tabela(page, 1).locator('.plano').click()
             expect(tabela(page, 1).locator('.fator')).to_have_value('0.03')
-            assert cache(page)['Banco Teste']['fatores'][DATA]['margem'][1]['fator'] == .03
+            assert cache(page)['Banco Teste']['fatores']['margem'][1]['fator'] == .03
             print('PASS: vínculos em qualquer direção propagam só fatores válidos; nomes especiais, prazos, taxas, cartão e outro banco preservados')
 
             page.reload()
@@ -130,25 +130,19 @@ def main():
             with page.expect_download() as pending:
                 page.locator('#bf-exportarBanco').click()
             linked = json.loads(Path(pending.value.path()).read_text(encoding='utf-8'))
-            assert len({i['grupo_fator'] for i in linked['Banco Teste']['fatores'][DATA]['margem'][:3]}) == 1
-            page.locator('#bf-data').fill('2026-10-21')
-            page.locator('#bf-data').dispatch_event('change')
-            tabela(page, 1).locator('.fator').fill('0.04')
-            base_cache = cache(page)['Banco Teste']['fatores']
-            assert [i['fator'] for i in base_cache['2026-10-21']['margem'][:3]] == [.04] * 3
-            assert [i['fator'] for i in base_cache[DATA]['margem'][:3]] == [.03] * 3
-            page.locator('#bf-data').fill(DATA)
-            page.locator('#bf-data').dispatch_event('change')
+            assert len({i['grupo_fator'] for i in linked['Banco Teste']['fatores']['margem'][:3]}) == 1
+            expect(page.locator('#bf-data')).to_have_count(0)
+            assert set(linked['Banco Teste']['fatores']) == {'margem', 'cartao'}
             tabela(page, 2).locator('.bf-factor-link > summary').click()
             tabela(page, 2).locator('.bf-link-remove').click()
             tabela(page, 2).locator('.fator').fill('0.05')
             expect(tabela(page, 0).locator('.fator')).to_have_value('0.03')
             tabela(page, 1).locator('button.danger').click()
             expect(page.locator('.bf-factor-link.is-linked')).to_have_count(0)
-            assert cache(page)['Banco Teste']['fatores'][DATA]['margem'][0]['grupo_fator'] is None
+            assert cache(page)['Banco Teste']['fatores']['margem'][0]['grupo_fator'] is None
             assert not errors, errors
             context.close()
-            print('PASS: recarregar/exportar preserva vínculos; nova data é independente; desvincular/remover não apaga fatores nem deixa vínculos órfãos; layout 320–1920px')
+            print('PASS: recarregar/exportar sem datas preserva vínculos; desvincular/remover não apaga fatores nem deixa vínculos órfãos; layout 320–1920px')
 
             context, page, errors, dialogs = fresh(local={})
             with page.expect_file_chooser() as pending:
@@ -176,24 +170,24 @@ def main():
             expect(page.locator('#bf-sync-status')).to_contain_text('6 fatores confirmados')
             remote = page.evaluate('window.__qaRows')
             assert len(remote) == 6
-            group = linked['Banco Teste']['fatores'][DATA]['margem'][0]['grupo_fator']
+            group = linked['Banco Teste']['fatores']['margem'][0]['grupo_fator']
             assert len([r for r in remote if r.get('grupo_fator') == group]) == 3
             assert page.evaluate("window.__qaWrites.every(w=>w.rows.every(r=>!Object.hasOwn(r,'id')))")
             result = page.evaluate("""async linked => {
                 const api = await import('../js/api/baseFatoresApi.js');
                 window.__qaWrites = [];
                 const legado = structuredClone(linked);
-                for (const b of Object.values(legado)) for (const d of Object.values(b.fatores))
-                    for (const rows of Object.values(d)) for (const row of rows) delete row.grupo_fator;
+                for (const b of Object.values(legado))
+                    for (const rows of Object.values(b.fatores)) for (const row of rows) delete row.grupo_fator;
                 await api.enviarFatoresRemotos(legado);
                 const legacyWrites = window.__qaWrites.length;
                 const parcial = {'Banco Teste': {fatores: {'2026-10-20': {margem: [
-                    {...legado['Banco Teste'].fatores['2026-10-20'].margem[0], fator:.04}
+                    {...legado['Banco Teste'].fatores.margem[0], fator:.04}
                 ]}}}};
                 let erroParcial='';
                 try { await api.enviarFatoresRemotos(parcial); } catch(e) { erroParcial=e.message; }
                 const partialWrites=window.__qaWrites.length;
-                for (const row of linked['Banco Teste'].fatores['2026-10-20'].margem) row.grupo_fator=null;
+                for (const row of linked['Banco Teste'].fatores.margem) row.grupo_fator=null;
                 await api.enviarFatoresRemotos(linked);
                 return {legacyWrites, erroParcial, partialWrites, writes:window.__qaWrites, rows:window.__qaRows};
             }""", linked)
@@ -222,7 +216,7 @@ def main():
 
             context, page, errors, dialogs = fresh()
             invalid = json.loads(json.dumps(linked))
-            invalid['Banco Teste']['fatores'][DATA]['margem'][0]['fator'] = .08
+            invalid['Banco Teste']['fatores']['margem'][0]['fator'] = .08
             upload(page, invalid)
             expect(page.locator('#bf-sync-status')).to_contain_text('precisam ter o mesmo fator')
             assert page.evaluate('window.__qaWrites.length') == 0

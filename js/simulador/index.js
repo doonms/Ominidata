@@ -1,4 +1,4 @@
-import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, BASE_INSS_KEY, BASE_INSS_FALLBACKS, writeToStorage } from '../config/storageKeys.js';
+import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
 import { carregarFatoresRemotos, mesclarFatoresRemotos, mensagemErroFatores } from '../api/baseFatoresApi.js';
 import { carregarBaseInss } from '../api/baseInssApi.js';
 import { parseNumeroCalculo, formatarFatorCalculo, formatarMoedaCalculo } from './calculadora-fator.js';
@@ -7,6 +7,7 @@ import { initMultiplasSimulacoes } from './multiplas-simulacoes.js';
 import { chaveBanco, definirLogo, initPesquisaBancos, listaRegras, PRODUTOS } from './pesquisa-bancos.js';
 import { prazosPorIdade } from '../filtros/rapido.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
+import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -20,7 +21,9 @@ function lerCache(chaves, converter) {
 
 function comoFatores(dados) {
   if (!dados || Array.isArray(dados) || typeof dados !== 'object') return {};
-  return Object.fromEntries(Object.entries(dados).filter(([, banco]) => banco?.fatores));
+  try { preservarBackupFatoresDatados(dados); }
+  catch (error) { console.warn('A base antiga foi mantida; não foi possível salvar seu backup:', error); }
+  return normalizarBaseFatores(dados);
 }
 
 async function comLimite(promise) {
@@ -76,8 +79,7 @@ export async function initSimulador() {
   function listaAtual(reg = registro(), tipo = operacao.value, filtros = perfilSelecionado?.filtros) {
     const dados = base[reg?.chaveFator];
     if (!dados?.fatores || !['margem', 'cartao'].includes(tipo)) return [];
-    const data = Object.keys(dados.fatores).sort().at(-1);
-    let lista = dados.fatores[data]?.[tipo] || [];
+    let lista = dados.fatores[tipo] || [];
     const regra = reg?.regra;
     if (filtros && regra) {
       const blocos = prazosPorIdade(regra, filtros.especie, filtros.idade, { [tipo]: true });
@@ -380,7 +382,10 @@ export async function initSimulador() {
   const fonte = el('sim-base-status');
   if (fatoresRemotos.status === 'fulfilled' && fatoresRemotos.value.length) {
     base = mesclarFatoresRemotos(fatoresRemotos.value, base);
-    try { writeToStorage(BASE_FATORES_KEY, base, BASE_FATORES_MIRRORS); }
+    try {
+      preservarBackupFatoresDatados(readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS));
+      writeToStorage(BASE_FATORES_KEY, base, BASE_FATORES_MIRRORS);
+    }
     catch (error) { console.warn('Não foi possível atualizar o cache dos fatores:', error); }
     if (fonte) fonte.textContent = 'Fatores consultados no Supabase; dados locais também foram preservados.';
   } else if (fonte) {
