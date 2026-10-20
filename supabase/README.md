@@ -11,13 +11,37 @@ Sem essa coluna, arquivos antigos sem nomes de tabela continuam sendo aceitos.
 Arquivos com nomes são mantidos no navegador, mas o envio é bloqueado com uma
 mensagem explicativa para não perder a identificação das tabelas.
 
+Para publicar vínculos de fator, execute também
+`migrations/20261020_base_fatores_vinculos.sql`. Adiciona somente a coluna
+`grupo_fator`, sem alterar IDs, registros ou políticas. Sem essa coluna, bases
+sem vínculos continuam funcionando; arquivos com vínculos não são enviados
+parcialmente nem têm seus vínculos descartados.
+
+## Vincular fatores de tabelas
+
+Em **Vincular fator**, escolha outra tabela do mesmo banco, data e modalidade
+e confirme. A tabela passa a usar o fator da escolhida; se os fatores forem
+diferentes, uma confirmação avisa antes de substituir o valor. Outras tabelas
+podem entrar no mesmo grupo. Não há vínculos automáticos por igualdade de fator.
+
+- Editar o fator de qualquer membro atualiza os outros membros do grupo.
+- Nome, taxa e prazo permanecem independentes. Outra data, banco ou modalidade
+  não é alterada, inclusive ao copiar as condições para uma nova data.
+- **Desvincular esta tabela** conserva o fator atual, que pode ser editado sozinho.
+- Vínculos ficam no navegador e no JSON exportado. Exporte e envie o JSON para
+  publicar fatores e vínculos para os demais usuários no Supabase.
+- Arquivos antigos sem a propriedade `grupo_fator` não desfazem vínculos
+  remotos; `grupo_fator: null` é a remoção explícita do vínculo.
+- Um arquivo que deixe fatores diferentes no mesmo grupo é rejeitado antes da
+  primeira gravação. Envie as tabelas vinculadas juntas.
+
 ## Envio e leitura
 
 - **Importar JSON / Salvar neste navegador**: armazenamento local da mesma origem
   (protocolo, domínio e porta), não publica para outros usuários.
 - **Enviar base ao Supabase**: valida todo o arquivo e exige sessão autenticada.
   Localiza registros de mesmo banco/data/tipo/prazo/plano e atualiza somente
-  fator/taxa com `UPDATE` filtrado por ID. Registros iguais não são regravados;
+  fator/taxa e o vínculo explícito com `UPDATE` filtrado por ID. Registros iguais não são regravados;
   os novos são enviados em um lote de `INSERT`, **sem o campo ID**, para respeitar
   colunas `GENERATED ALWAYS AS IDENTITY`. Não apaga fatores ausentes nem outros
   convênios. Renomear uma tabela importa um novo registro, sem excluir a antiga.
@@ -45,6 +69,7 @@ Com Playwright e Chrome disponíveis:
 
 ```text
 python tests/base-fatores-sync.py
+python tests/base-fatores-vinculos.py
 python tests/simulador-fluxo.py
 python tests/navegacao-paginas.py
 ```

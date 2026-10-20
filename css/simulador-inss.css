@@ -40,7 +40,11 @@
 .simulador-page .sim-workspace,
 .simulador-page .sim-search-panel { display: block; padding: 20px; border: 1px solid var(--sim-border); border-radius: 16px; background: rgba(10, 27, 39, 0.94); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15); }
 .simulador-page .sim-controls { display: block; width: 100%; min-width: 0; padding: 0; margin: 0; background: none; border: 0; }
-.simulador-page .sim-calculation-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 18px; }
+.simulador-page .sim-calculation-head { display: flex; justify-content: flex-end; align-items: center; gap: 20px; margin-bottom: 18px; }
+.simulador-page .sim-workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; list-style: none; cursor: pointer; }
+.simulador-page .sim-workspace-heading::-webkit-details-marker { display: none; }
+.simulador-page .sim-workspace-heading:focus-visible { outline: 2px solid #66c2ff; outline-offset: 6px; border-radius: 4px; }
+.simulador-page .sim-workspace:not([open]) > .sim-workspace-heading { margin-bottom: 0; }
 .simulador-page .sim-side-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .simulador-page .sim-side-title > div { display: grid; gap: 3px; }
 .simulador-page .sim-side-title strong { color: var(--sim-text); font-size: 0.92rem; }
@@ -74,6 +78,18 @@
 .simulador-page .sim-money-input:focus-within { border-color: #67ceb8; }
 .simulador-page .sim-money-input input:focus { border: 0; box-shadow: none; }
 .simulador-page .sim-manual-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.simulador-page .sim-factor-calculator { margin-top: 10px; border-top: 1px solid var(--sim-border); }
+.simulador-page .sim-factor-calculator > summary { padding: 10px 0; color: #8ed1ff; font-size: .74rem; font-weight: 700; cursor: pointer; }
+.simulador-page .sim-factor-calculator > summary > span { margin-left: 10px; color: var(--sim-muted); font-size: .67rem; font-weight: 400; }
+.simulador-page .sim-factor-calculator > summary:focus-visible { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.simulador-page .sim-factor-calculator-body { display: grid; gap: 12px; padding: 8px 12px 14px; border: 1px solid var(--sim-border); border-radius: 10px; background: #102433; }
+.simulador-page .sim-factor-calculator-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.simulador-page .sim-factor-calculator input.is-calculated { outline: 2px solid #56c7b7; }
+.simulador-page .sim-factor-calculator-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.simulador-page .sim-factor-calculator-actions > small { flex: 1; min-width: 160px; }
+.simulador-page .sim-factor-calculator-actions button { padding: 9px 12px; font-size: .72rem; }
+.simulador-page .sim-factor-calculator-actions .secondary { border: 1px solid #285674; background: #102d40; color: #b9dfff; }
+.simulador-page .sim-factor-calculator-actions button:disabled { opacity: .45; cursor: not-allowed; }
 .simulador-page .sim-conditions { margin-top: 14px; border-top: 1px solid var(--sim-border); }
 .simulador-page .sim-conditions summary { padding: 11px 0; color: #b7d4e7; font-size: 0.74rem; font-weight: 700; cursor: pointer; }
 .simulador-page .sim-conditions summary > span { margin-left: 10px; font-size: 0.67rem; font-weight: 400; color: var(--sim-muted); }
@@ -118,7 +134,27 @@
 .simulador-page .sim-result-footer { margin-top: 16px; color: #8faabe; text-align: right; font-size: 0.67rem; }
 .simulador-page .sim-result-footer strong { color: #b7d4e7; font-weight: 700; }
 .simulador-page .sim-search-panel { margin: 0 0 16px; }
-.simulador-page .sim-search-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.simulador-page .sim-search-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; margin-bottom: 16px; cursor: pointer; list-style: none; }
+.simulador-page .sim-search-heading::-webkit-details-marker { display: none; }
+.simulador-page .sim-search-heading:focus-visible { outline: 2px solid #66c2ff; outline-offset: 6px; border-radius: 4px; }
+.simulador-page .sim-search-panel:not([open]) > .sim-search-heading { margin-bottom: 0; }
+.simulador-page .sim-search-toggle { display: inline-flex; align-items: center; justify-self: end; gap: 10px; color: #8ed1ff; font-size: .72rem; white-space: nowrap; }
+.simulador-page .sim-search-toggle > i { width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.simulador-page .sim-search-panel[open] > .sim-search-heading .sim-search-toggle > i,
+.simulador-page .sim-workspace[open] > .sim-workspace-heading .sim-search-toggle > i { transform: rotate(225deg); }
+.simulador-page .sim-search-panel[open] .sim-search-expand-label,
+.simulador-page .sim-search-panel:not([open]) .sim-search-collapse-label,
+.simulador-page .sim-workspace[open] .sim-search-expand-label,
+.simulador-page .sim-workspace:not([open]) .sim-search-collapse-label { display: none; }
+.simulador-page .sim-search-modes { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; margin: 0 0 18px; padding: 0; border: 0; }
+.simulador-page .sim-search-modes legend { margin-bottom: 8px; color: #c5ddec; font-size: .73rem; font-weight: 600; }
+.simulador-page .sim-search-mode { position: relative; display: flex; align-items: center; min-height: 48px; padding: 9px 14px; border: 1px solid #294455; border-radius: 9px; background: #061720; cursor: pointer; }
+.simulador-page .sim-search-mode input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.simulador-page .sim-search-mode span { display: grid; gap: 3px; }
+.simulador-page .sim-search-mode strong { color: #c9e0ee; font-size: .76rem; }
+.simulador-page .sim-search-mode small { color: var(--sim-muted); font-size: .63rem; }
+.simulador-page .sim-search-mode:has(input:checked) { border-color: #258dcc; background: #10364d; }
+.simulador-page .sim-search-mode:has(input:focus-visible) { outline: 2px solid #66c2ff; outline-offset: 2px; }
 .simulador-page .sim-search-fields { display: grid; grid-template-columns: 0.65fr 1fr 1fr 1.4fr; gap: 14px; }
 .simulador-page .sim-search-products { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; margin: 14px 0; padding: 0; border: 0; }
 .simulador-page .sim-search-products legend { margin-bottom: 8px; color: #c5ddec; font-size: 0.73rem; font-weight: 700; }
@@ -147,11 +183,78 @@
 .simulador-page .sim-bank-simulate { width: 100%; margin-top: auto; padding: 6px; border: 1px solid #285674; border-radius: 6px; background: #102d40; color: #9cdaff; font-size: 0.67rem; }
 .simulador-page .sim-bank-simulate:focus-visible,
 .simulador-page .sim-bank-expand:focus-visible { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.simulador-page .sim-bank-results.is-advanced { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.simulador-page .is-advanced .sim-bank-card { height: auto; min-height: 220px; }
+.simulador-page .sim-bank-advanced-details { min-width: 0; margin: 5px 0; border-top: 1px solid var(--sim-border); }
+.simulador-page .sim-bank-advanced-details > summary { padding: 10px 0; color: #8ed1ff; font-size: .75rem; font-weight: 600; cursor: pointer; }
+.simulador-page .sim-bank-advanced-details > summary:focus-visible { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.simulador-page .sim-bank-advanced-body { min-width: 0; padding: 5px 0 14px; color: #c1d7e6; font-size: .76rem; line-height: 1.5; }
+.simulador-page .sim-bank-advanced-body .subblock + .subblock { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--sim-border); }
+.simulador-page .sim-bank-advanced-body .subttl { margin-bottom: 8px; color: #e2f2fc; font-size: .76rem; font-weight: 700; }
+.simulador-page .sim-bank-advanced-body .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.simulador-page .sim-bank-advanced-body .chip { display: inline-flex; padding: 4px 8px; border: 1px solid #294455; border-radius: 7px; color: #b9d1e2; background: #142d3e; font-size: .68rem; overflow-wrap: anywhere; }
+.simulador-page .sim-bank-advanced-body .chip.ok { border-color: #23554f; color: #a5ead9; background: rgba(23, 151, 125, .1); }
+.simulador-page .sim-bank-advanced-body .mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+.simulador-page .sim-bank-advanced-body .mini-grid > div { min-width: 0; overflow-wrap: anywhere; }
+.simulador-page .sim-bank-advanced-body b { color: #91adc1; font-weight: 600; }
+.simulador-page .sim-bank-advanced-body .prz-group { margin-top: 10px; }
+.simulador-page .sim-bank-advanced-body .prz-head,
+.simulador-page .sim-bank-advanced-body .prz-row { display: grid; grid-template-columns: 72px 56px minmax(0, 1fr); gap: 8px; align-items: start; }
+.simulador-page .sim-bank-advanced-body .prz-head { padding: 6px 0; border-bottom: 1px solid var(--sim-border); color: #91adc1; font-size: .64rem; }
+.simulador-page .sim-bank-advanced-body .prz-row { padding: 8px 0; font-size: .7rem; }
+.simulador-page .sim-bank-advanced-body .prz-row + .prz-row { border-top: 1px dashed var(--sim-border); }
+.simulador-page .sim-bank-advanced-body .prz-c { min-width: 0; overflow-wrap: anywhere; }
+.simulador-page .sim-bank-advanced-body .prz-c.prazo { color: #a9def8; font-weight: 700; }
+.simulador-page .sim-bank-advanced-body .prz-c.obs { white-space: pre-line; }
 
+.simulador-page .sim-multiple-panel { margin-top: 14px; border-top: 1px solid var(--sim-border); }
+.simulador-page .sim-multiple-panel > summary { padding: 12px 0; color: #8ed1ff; font-size: .76rem; font-weight: 700; cursor: pointer; }
+.simulador-page .sim-multiple-panel > summary > span { margin-left: 10px; color: var(--sim-muted); font-size: .67rem; font-weight: 400; }
+.simulador-page .sim-multiple-panel > summary:focus-visible { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.simulador-page .sim-multiple-body { display: grid; gap: 14px; padding: 12px; border: 1px solid var(--sim-border); border-radius: 10px; background: #102433; }
+.simulador-page .sim-multi-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.simulador-page .sim-multi-actions > p { flex: 1 1 240px; }
+.simulador-page .sim-multiple-body button,
+.simulador-page .sim-multi-results-heading button { padding: 9px 12px; font-size: .73rem; }
+.simulador-page .sim-multiple-body .secondary,
+.simulador-page .sim-multi-results-heading .secondary { border: 1px solid #315065; background: #142d3e; color: #b9dfff; }
+.simulador-page .sim-multiple-body button:disabled { opacity: .45; cursor: not-allowed; }
+.simulador-page .sim-multi-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; padding: 0; margin: 14px 0 0; border: 0; }
+.simulador-page .sim-multi-choice { display: flex; gap: 10px; align-items: center; min-width: 0; padding: 12px; border: 1px solid var(--sim-border); border-radius: 9px; cursor: pointer; }
+.simulador-page .sim-multi-choice:has(input:checked) { border-color: #258dcc; background: #10364d; }
+.simulador-page .sim-multi-choice:focus-within { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.simulador-page .sim-multi-choice input { flex: 0 0 17px; width: 17px; height: 17px; margin: 0; accent-color: #1595ff; }
+.simulador-page .sim-multi-choice > span { display: grid; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.simulador-page .sim-multi-choice strong { color: var(--sim-text); font-size: .76rem; }
+.simulador-page .sim-multi-choice small { color: var(--sim-muted); font-size: .69rem; }
+.simulador-page .sim-multi-manual-row { display: grid; grid-template-columns: .65fr .9fr 1.3fr .9fr auto; gap: 10px; align-items: end; margin: 12px 0; padding: 12px; border: 1px solid var(--sim-border); border-radius: 9px; }
+.simulador-page .sim-multi-manual-row label > span { display: block; color: #c5ddec; font-size: .7rem; font-weight: 700; margin-bottom: 7px; }
+.simulador-page .sim-multi-results { margin-top: 20px; }
+.simulador-page .sim-multi-results-heading,
+.simulador-page .sim-multi-results-heading > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.simulador-page .sim-multi-results-heading { justify-content: space-between; margin-bottom: 14px; color: var(--sim-text); font-size: .85rem; }
+.simulador-page .sim-multi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.simulador-page .sim-multi-cards .sim-multi-card { max-width: none; margin: 0; padding: 16px; }
+.simulador-page .sim-multi-card .sim-primary-result > strong { font-size: 1.45rem; }
+.simulador-page .sim-multi-card .sim-payment-result > strong { font-size: 1.3rem; }
 @media (max-width: 1000px) {
+  .simulador-page .sim-multi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .sim-multi-manual-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .sim-multi-manual-row > button { grid-column: 1 / -1; }
   .simulador-page .sim-calculation-head { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
 @media (max-width: 760px) {
+  .simulador-page .sim-multi-options,
+  .simulador-page .sim-multi-cards { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .sim-multiple-panel > summary > span { display: none; }
+  .simulador-page .sim-search-heading { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .simulador-page .sim-search-heading > .sim-side-title { grid-column: 1 / -1; }
+  .simulador-page .sim-search-heading > .sim-result-badge { justify-self: start; }
+  .simulador-page .sim-factor-calculator > summary > span { display: none; }
+  .simulador-page .sim-factor-calculator-fields { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .sim-factor-calculator-actions > small { flex-basis: 100%; }
+  .simulador-page .sim-factor-calculator-actions button { flex: 1; align-self: stretch; }
+  .simulador-page .sim-bank-results.is-advanced { grid-template-columns: minmax(0, 1fr); }
   .simulador-page .sim-page { width: calc(100% - 24px); margin-top: 12px; }
   .simulador-page .sim-hero { padding: 16px 16px 16px 42px; }
   .simulador-page .sim-hero-status { display: none; }
@@ -163,6 +266,13 @@
   .simulador-page .sim-conditions summary > span { display: none; }
 }
 @media (max-width: 480px) {
+  .simulador-page .sim-multi-manual-row { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .sim-multi-actions > button { flex: 1; }
+  .simulador-page .sim-search-mode { flex: 1; min-width: 0; padding: 9px 10px; }
+  .simulador-page .sim-search-mode small { font-size: .6rem; }
+  .simulador-page .sim-bank-advanced-body .mini-grid { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .sim-bank-advanced-body .prz-head,
+  .simulador-page .sim-bank-advanced-body .prz-row { grid-template-columns: 58px 45px minmax(0, 1fr); gap: 6px; }
   .simulador-page .sim-hero { gap: 10px; padding: 15px 14px 15px 38px; }
   .simulador-page .sim-hero-brand { gap: 10px; }
   .simulador-page .sim-hero .logo-wrap { width: 40px; height: 40px; flex-basis: 40px; }

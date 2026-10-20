@@ -1077,6 +1077,19 @@ button.small {
   grid-template-columns: minmax(160px, 1fr) 140px 140px auto;
 }
 
+.base-fatores-page .bf-link-help,
+.base-fatores-page .bf-link-feedback { color: var(--bf-muted); font-size: .75rem; line-height: 1.5; margin: 0 0 12px; }
+.base-fatores-page .bf-link-feedback:empty { display: none; }
+.base-fatores-page .bf-link-feedback.is-error { color: #ffabb4; }
+.base-fatores-page .bf-factor-link { grid-column: 1 / -1; min-width: 0; width: 100%; }
+.base-fatores-page .bf-factor-link > summary { padding: 5px 0; color: #8ed1ff; font-size: .73rem; cursor: pointer; }
+.base-fatores-page .bf-factor-link.is-linked > summary { color: #8be2ca; }
+.base-fatores-page .bf-factor-link > summary:focus-visible { outline: 2px solid #66c2ff; outline-offset: 2px; }
+.base-fatores-page .bf-factor-link-body { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; padding: 10px 0 4px; border-top: 1px solid var(--bf-border); }
+.base-fatores-page .bf-factor-link-body > p { flex-basis: 100%; margin: 0; color: var(--bf-muted); font-size: .73rem; line-height: 1.5; overflow-wrap: anywhere; }
+.base-fatores-page .bf-factor-link-body > label { display: grid; gap: 5px; flex: 1 1 220px; min-width: 0; color: var(--bf-text); font-size: .72rem; }
+.base-fatores-page .bf-factor-link-body select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--bf-border); border-radius: 7px; color: var(--bf-text); background: #0d1d2a; font-size: .75rem; }
+.base-fatores-page .bf-factor-link-body button:disabled { opacity: .45; cursor: not-allowed; }
 .base-fatores-page .factor-row:hover,
 .base-fatores-page .seguro-row:hover {
   border-color: rgba(69, 175, 255, 0.22);

@@ -1,9 +1,12 @@
 import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, BASE_INSS_KEY, BASE_INSS_FALLBACKS, writeToStorage } from '../config/storageKeys.js';
 import { carregarFatoresRemotos, mesclarFatoresRemotos, mensagemErroFatores } from '../api/baseFatoresApi.js';
 import { carregarBaseInss } from '../api/baseInssApi.js';
-import { calcularParcela, calcularValorLiberado, parseNumeroCalculo, formatarFatorCalculo, formatarMoedaCalculo } from './calculadora-fator.js';
+import { parseNumeroCalculo, formatarFatorCalculo, formatarMoedaCalculo } from './calculadora-fator.js';
+import { calcularCondicaoSimulacao, formatarTaxaSimulacao as formatarTaxa } from './calculo-simulacao.js';
+import { initMultiplasSimulacoes } from './multiplas-simulacoes.js';
 import { chaveBanco, definirLogo, initPesquisaBancos, listaRegras, PRODUTOS } from './pesquisa-bancos.js';
 import { prazosPorIdade } from '../filtros/rapido.js';
+import { initCalculadoraFator } from './calculadora-fator-ui.js';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -54,6 +57,7 @@ export async function initSimulador() {
   let bancos = [];
   let perfilSelecionado = null;
   let fatorDigitado = '';
+  let multiplas;
 
   function avisar(texto, erro = false) {
     status.textContent = texto;
@@ -148,6 +152,7 @@ export async function initSimulador() {
   }
 
   function limparResultado() {
+    multiplas?.invalidar();
     el('sim-result').hidden = true;
     ['resValor', 'resPrazo', 'resParcela', 'resTaxa', 'resPlano', 'resFator'].forEach(id => { el(id).textContent = '-'; });
     el('resSeguroItem').hidden = true;
@@ -186,6 +191,8 @@ export async function initSimulador() {
     el('grpPrazoManual').hidden = !manual;
     el('grpTabelaCadastrada').hidden = manual;
     el('grpDetalhesManuais').hidden = !manual;
+    el('sim-calculadora-fator').hidden = !manual;
+    if (!manual) el('sim-calculadora-fator').open = false;
     tabelaManual.disabled = !manual;
     taxaManual.disabled = !manual;
     if (!manual) el('sim-condicoes').open = true;
@@ -195,6 +202,7 @@ export async function initSimulador() {
       : 'Parcela ÷ fator = valor liberado.';
     el('resParcelaLabel').textContent = cartaoTabela ? 'Margem do cartão' : 'Valor da parcela';
     atualizarFator();
+    multiplas?.atualizar();
   }
 
   function selecionarBanco() {
@@ -233,28 +241,13 @@ export async function initSimulador() {
       return false;
     }
     const seg = (dadosBanco().seguros || [])[Number.parseInt(seguro.value, 10)] || null;
-    let liberado;
-    let prestacao;
-    let custoSeguro;
-    if (!manual && operacao.value === 'cartao') {
-      prestacao = informado;
-      liberado = informado * numeroFator * 0.70;
-      custoSeguro = seg ? Number(seg.valor) * (seg.tipo === 'percentual' ? liberado / 100 : 1) : 0;
-    } else if (modoParcela.checked) {
-      liberado = informado;
-      const bruto = liquidoParaBruto(seg, informado);
-      prestacao = calcularParcela(bruto, numeroFator);
-      custoSeguro = bruto - informado;
-    } else {
-      prestacao = informado;
-      const bruto = calcularValorLiberado(informado, numeroFator);
-      liberado = brutoParaLiquido(seg, bruto);
-      custoSeguro = bruto - liberado;
-    }
-    if (![liberado, prestacao].every(n => n !== null && Number.isFinite(n) && n >= 0)) {
+    const calculo = calcularCondicaoSimulacao({ informado, fator: numeroFator,
+      porParcela: modoParcela.checked, cartaoTabela: !manual && operacao.value === 'cartao', seguro: seg });
+    if (!calculo) {
       avisar('Confira os valores informados para realizar o cálculo.', true);
       return false;
     }
+    const { liberado, prestacao, custoSeguro } = calculo;
     el('resValor').textContent = moeda(liberado);
     el('resParcela').textContent = moeda(prestacao);
     el('resPrazo').textContent = meses > 0 ? `${meses}x` : 'Não informado';
@@ -301,8 +294,43 @@ export async function initSimulador() {
       limparResultado(); simular(true);
     }
   }));
-  el('btnSimular').addEventListener('click', () => simular());
+  el('btnSimular').addEventListener('click', () => { multiplas?.invalidar(); simular(); });
 
+  initCalculadoraFator({
+    campos: { parcela: el('sim-calc-parcela'), fator: el('sim-calc-fator'), valor: el('sim-calc-valor') },
+    status: el('sim-calc-status'),
+    limpar: el('sim-calc-limpar'),
+    aoAtualizar: valido => {
+      el('sim-calc-usar').disabled = !valido || !['parcela', 'fator', 'valor']
+        .every(nome => parseNumeroCalculo(el(`sim-calc-${nome}`).value) > 0);
+    }
+  });
+  el('sim-calc-usar').addEventListener('click', () => {
+    const calculado = parseNumeroCalculo(el('sim-calc-fator').value);
+    if (origem.value !== 'manual' || !(calculado > 0) || el('sim-calc-usar').disabled) return;
+    fator.value = formatarFatorCalculo(calculado);
+    fator.dispatchEvent(new Event('input', { bubbles: true }));
+    el('sim-calc-status').textContent = 'Fator aplicado à simulação. Os demais dados foram mantidos.';
+  });
+
+  multiplas = initMultiplasSimulacoes({
+    root,
+    getContexto: () => ({
+      manual: origem.value === 'manual',
+      informado: modoParcela.checked ? valor.value : parcela.value,
+      porParcela: modoParcela.checked,
+      operacao: operacao.value,
+      banco: banco.value,
+      nomeBanco: registro()?.nome || '',
+      logo: dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo,
+      seguro: (dadosBanco().seguros || [])[Number.parseInt(seguro.value, 10)] || null,
+      opcoes: listaAtual(),
+      fator: fator.value,
+      prazo: el('inpPrazoManual').value,
+      plano: tabelaManual.value,
+      taxa: taxaManual.value
+    })
+  });
   montarBancos(); selecionarBanco();
   const pesquisa = initPesquisaBancos({
     getBancos: () => regras,
@@ -337,6 +365,7 @@ export async function initSimulador() {
       if (!simular(true)) avisar(temFator
         ? 'Banco e tabela carregados. Informe o valor para simular.'
         : 'Banco selecionado. Informe o fator manual desta operação para simular.');
+      el('sim-operacao').open = true;
       el('sim-operacao').scrollIntoView({ behavior: 'smooth', block: 'start' });
       (temFator ? (modoParcela.checked ? valor : parcela) : fator).focus({ preventScroll: true });
     }
@@ -374,26 +403,6 @@ export async function initSimulador() {
   pesquisa.atualizar();
 }
 
-function liquidoParaBruto(seguro, liquido) {
-  const valor = parseNumeroCalculo(seguro?.valor) || 0;
-  if (!valor) return liquido;
-  if (seguro.tipo === 'percentual') return valor < 100 ? liquido / (1 - valor / 100) : liquido;
-  return liquido + valor;
-}
-
-function brutoParaLiquido(seguro, bruto) {
-  const valor = parseNumeroCalculo(seguro?.valor) || 0;
-  if (!valor) return bruto;
-  return Math.max(0, seguro.tipo === 'percentual' ? bruto * (1 - valor / 100) : bruto - valor);
-}
-
 function moeda(valor) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatarTaxa(valor) {
-  if (valor == null || String(valor).trim() === '') return '';
-  const numero = parseNumeroCalculo(valor);
-  return numero === null ? String(valor).trim()
-    : `${numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
 }

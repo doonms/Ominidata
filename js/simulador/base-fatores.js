@@ -1,14 +1,9 @@
 import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
 import { carregarFatoresRemotos, enviarFatoresRemotos, mesclarFatoresRemotos,
   mesclarArquivoFatores, mensagemErroFatores, prepararFatores } from '../api/baseFatoresApi.js';
-import {
-  calcularFator,
-  calcularParcela,
-  calcularValorLiberado,
-  formatarFatorCalculo as formatarFator,
-  formatarMoedaCalculo as formatarMoedaManual,
-  parseNumeroCalculo as parseNumeroManual
-} from './calculadora-fator.js';
+import { initCalculadoraFator } from './calculadora-fator-ui.js';
+import { parseNumeroCalculo } from './calculadora-fator.js';
+import { tabelasVinculadas, vincularFator, atualizarFatorVinculado, desvincularFator } from './vinculos-fatores.js';
 // === Base de Fatores (Simulador Limpo) ===
 // Controle de INSS, margem/cartão, seguros e calendário.
 
@@ -159,107 +154,11 @@ function mapEls(map) {
 }
 
 function initCalculadoraManual(els) {
-  const campos = {
-    parcela: els.calcParcela,
-    fator: els.calcFator,
-    valor: els.calcValor
-  };
-  if (!campos.parcela || !campos.fator || !campos.valor) return;
-
-  let historico = [];
-
-  Object.entries(campos).forEach(([nome, campo]) => {
-    campo.addEventListener("input", () => {
-      historico = historico.filter(item => item !== nome);
-      historico.push(nome);
-      if (historico.length > 2) historico.shift();
-      calcularCampoManual(campos, historico, nome, els.calcStatus);
-    });
-
-    campo.addEventListener("blur", () => {
-      const numero = parseNumeroManual(campo.value);
-      if (numero === null) return;
-      campo.value = nome === "fator" ? formatarFator(numero) : formatarMoedaManual(numero);
-    });
+  initCalculadoraFator({
+    campos: { parcela: els.calcParcela, fator: els.calcFator, valor: els.calcValor },
+    status: els.calcStatus,
+    limpar: els.calcLimpar
   });
-
-  if (els.calcLimpar) {
-    els.calcLimpar.addEventListener("click", () => {
-      Object.values(campos).forEach(campo => { campo.value = ""; });
-      historico = [];
-      atualizarStatusCalculadora(
-        els.calcStatus,
-        "Use parcela ÷ fator para encontrar o valor liberado."
-      );
-      campos.parcela.focus();
-    });
-  }
-}
-
-function calcularCampoManual(campos, historico, campoEditado, status) {
-  const valores = {
-    parcela: parseNumeroManual(campos.parcela.value),
-    fator: parseNumeroManual(campos.fator.value),
-    valor: parseNumeroManual(campos.valor.value)
-  };
-
-  let fontes;
-  if (valores[campoEditado] === null) {
-    fontes = Object.keys(valores).filter(nome => nome !== campoEditado && valores[nome] !== null);
-  } else {
-    fontes = historico.filter(nome => valores[nome] !== null);
-  }
-
-  if (fontes.length < 2) {
-    atualizarStatusCalculadora(status, "Preencha mais um campo para realizar o cálculo.");
-    return;
-  }
-
-  const chaves = new Set(fontes.slice(-2));
-  let destino;
-  if (chaves.has("parcela") && chaves.has("fator")) destino = "valor";
-  if (chaves.has("parcela") && chaves.has("valor")) destino = "fator";
-  if (chaves.has("fator") && chaves.has("valor")) destino = "parcela";
-  if (!destino) return;
-
-  let resultado;
-  let mensagem;
-  if (destino === "valor") {
-    if (valores.fator <= 0) {
-      atualizarStatusCalculadora(status, "O fator precisa ser maior que zero.", true);
-      return;
-    }
-    resultado = calcularValorLiberado(valores.parcela, valores.fator);
-    mensagem = "Valor liberado = parcela ÷ fator";
-  } else if (destino === "fator") {
-    if (valores.valor <= 0) {
-      atualizarStatusCalculadora(status, "O valor liberado precisa ser maior que zero.", true);
-      return;
-    }
-    resultado = calcularFator(valores.parcela, valores.valor);
-    mensagem = "Fator = parcela ÷ valor liberado";
-  } else {
-    resultado = calcularParcela(valores.valor, valores.fator);
-    mensagem = "Parcela = valor liberado × fator";
-  }
-
-  if (!Number.isFinite(resultado) || resultado < 0) {
-    atualizarStatusCalculadora(status, "Confira os valores informados.", true);
-    return;
-  }
-
-  campos[destino].value = destino === "fator"
-    ? formatarFator(resultado)
-    : formatarMoedaManual(resultado);
-  campos[destino].classList.add("is-calculated");
-  window.setTimeout(() => campos[destino].classList.remove("is-calculated"), 320);
-  atualizarStatusCalculadora(status, `${mensagem}. Resultado atualizado automaticamente.`);
-}
-
-function atualizarStatusCalculadora(elemento, mensagem, erro = false) {
-  if (!elemento) return;
-  elemento.textContent = mensagem;
-  elemento.classList.toggle("is-error", erro);
 }
 
 function loadState() {
@@ -464,28 +363,137 @@ function renderFatores(b, els) {
 }
 
 function renderLinhaPrazo(f, idx, tipo, b, els) {
+  const lista = b.fatores[state.dataAtual][tipo];
   const div = document.createElement("div");
   div.className = "factor-row";
   if (typeof f.taxa !== "string") f.taxa = f.taxa != null ? String(f.taxa) : "";
   if (typeof f.plano !== "string") f.plano = f.plano != null ? String(f.plano) : "";
   div.innerHTML = `
-    <input type="number" class="prazo" placeholder="Prazo" value="${f.prazo ?? ""}" />
-    <input type="number" step="0.0001" class="fator" placeholder="Fator" value="${f.fator ?? ""}" />
-    <input type="text" class="taxa" placeholder="Taxa" value="${f.taxa ?? ""}" />
-    <input type="text" class="plano" placeholder="Plano/Tabela" value="${f.plano ?? ""}" />
-    <button class="danger small">Remover</button>
+    <input type="number" class="prazo" placeholder="Prazo" aria-label="Prazo" />
+    <input type="number" step="any" min="0" class="fator" placeholder="Fator" aria-label="Fator" />
+    <input type="text" class="taxa" placeholder="Taxa" aria-label="Taxa" />
+    <input type="text" class="plano" placeholder="Plano/Tabela" aria-label="Plano/Tabela" />
+    <button type="button" class="danger small">Remover</button>
   `;
   const [inPrazo, inFator, inTaxa, inPlano, bt] = div.children;
+  inPrazo.value = f.prazo ?? '';
+  inFator.value = parseNumeroCalculo(f.fator) ?? '';
+  inTaxa.value = f.taxa;
+  inPlano.value = f.plano;
   inPrazo.addEventListener("input", () => { f.prazo = parseInt(inPrazo.value) || ""; saveState(); });
-  inFator.addEventListener("input", () => { f.fator = parseFloat(inFator.value) || ""; saveState(); });
+  inFator.addEventListener("input", () => {
+    const vinculadas = tabelasVinculadas(lista, f);
+    if (!atualizarFatorVinculado(lista, f, inFator.value)) {
+      if (vinculadas.length > 1) {
+        avisarVinculos('Informe um fator maior que zero. Os fatores vinculados foram mantidos.', true);
+      } else {
+        f.fator = '';
+        saveState();
+      }
+      return;
+    }
+    const container = tipo === 'cartao' ? els.listaPrazosCartao : els.listaPrazosMargem;
+    container.querySelectorAll('.factor-row').forEach((row, indice) => {
+      if (lista[indice] !== f && vinculadas.includes(lista[indice])) {
+        row.querySelector('.fator').value = f.fator;
+      }
+    });
+    saveState();
+    if (vinculadas.length > 1) avisarVinculos(`Fator atualizado em ${vinculadas.length} tabelas vinculadas. Nomes, taxas e prazos foram mantidos. Alteração salva neste navegador.`);
+  });
+  inFator.addEventListener('blur', () => {
+    if (tabelasVinculadas(lista, f).length > 1) inFator.value = f.fator;
+  });
   inTaxa.addEventListener("input", () => { f.taxa = inTaxa.value; saveState(); });
   inPlano.addEventListener("input", () => { f.plano = inPlano.value; saveState(); });
   bt.addEventListener("click", () => {
-    b.fatores[state.dataAtual][tipo].splice(idx, 1);
+    lista.splice(idx, 1);
+    desvincularFator(lista, f);
     renderFatores(b, els);
     saveState();
   });
+  // A tela antiga de fatores-do-dia compartilha o editor, mas não este layout.
+  if (els.slBanco.closest('.bf-page')) div.appendChild(renderVinculoFator(f, lista, b, els));
   return div;
+}
+
+function avisarVinculos(mensagem, erro = false) {
+  const status = document.getElementById('bf-vinculos-status');
+  if (!status) return;
+  status.textContent = mensagem;
+  status.classList.toggle('is-error', erro);
+}
+
+function rotuloTabela(item, indice) {
+  return `${item.plano || item.tabela || `Tabela ${indice + 1}`} · ${item.prazo || '?'}x · fator ${item.fator || 'não informado'}`;
+}
+
+function renderVinculoFator(f, lista, b, els) {
+  const details = document.createElement('details');
+  details.className = 'bf-factor-link';
+  const summary = document.createElement('summary');
+  const vinculadas = tabelasVinculadas(lista, f);
+  summary.textContent = vinculadas.length > 1 ? `Fator vinculado · ${vinculadas.length} tabelas — gerenciar` : 'Vincular fator';
+  details.classList.toggle('is-linked', vinculadas.length > 1);
+  const body = document.createElement('div');
+  body.className = 'bf-factor-link-body';
+  const info = document.createElement('p');
+  info.textContent = vinculadas.length > 1
+    ? `Compartilha o fator com: ${vinculadas.filter(item => item !== f).map(item => item.plano || item.tabela || `Tabela ${lista.indexOf(item) + 1}`).join(', ')}. Nome, taxa e prazo são independentes.`
+    : 'Escolha outra tabela desta modalidade e data. Esta tabela passará a usar o fator da escolhida.';
+  const label = document.createElement('label');
+  label.textContent = 'Vincular esta tabela a';
+  const select = document.createElement('select');
+  select.className = 'bf-link-target';
+  label.appendChild(select);
+  const aplicar = document.createElement('button');
+  function preencherOpcoes() {
+    const anterior = select.value;
+    select.replaceChildren(new Option('Escolher tabela', ''));
+    lista.forEach((item, indice) => {
+      if (item !== f && !vinculadas.includes(item)) select.add(new Option(rotuloTabela(item, indice), String(indice)));
+    });
+    if ([...select.options].some(opcao => opcao.value === anterior)) select.value = anterior;
+    select.disabled = select.options.length < 2;
+    aplicar.disabled = select.value === '';
+    if (vinculadas.length > 1) info.textContent = `Compartilha o fator com: ${vinculadas.filter(item => item !== f).map(item => item.plano || item.tabela || `Tabela ${lista.indexOf(item) + 1}`).join(', ')}. Nome, taxa e prazo são independentes.`;
+  }
+  preencherOpcoes();
+  details.addEventListener('toggle', () => { if (details.open) preencherOpcoes(); });
+  aplicar.type = 'button';
+  aplicar.className = 'secondary small bf-link-apply';
+  aplicar.textContent = 'Vincular fator';
+  aplicar.disabled = true;
+  select.addEventListener('change', () => { aplicar.disabled = select.value === ''; });
+  aplicar.addEventListener('click', () => {
+    const referencia = select.value === '' ? null : lista[Number(select.value)];
+    if (!referencia || !(parseNumeroCalculo(referencia.fator) > 0)) {
+      avisarVinculos('A tabela escolhida precisa ter um fator maior que zero.', true);
+      return;
+    }
+    if (parseNumeroCalculo(f.fator) !== parseNumeroCalculo(referencia.fator) &&
+        !confirm(`Esta tabela passará a usar o fator ${referencia.fator} de "${referencia.plano || referencia.tabela || 'Tabela sem nome'}". Nome, taxa e prazo serão mantidos. Vincular?`)) return;
+    if (!vincularFator(lista, f, referencia)) return;
+    saveState();
+    renderFatores(b, els);
+    avisarVinculos('Tabelas vinculadas. Editar o fator de qualquer uma atualiza as demais; nomes, taxas e prazos não mudam. Para publicar, exporte e envie o JSON ao Supabase.');
+  });
+  body.append(info, label, aplicar);
+  if (vinculadas.length > 1) {
+    const remover = document.createElement('button');
+    remover.type = 'button';
+    remover.className = 'secondary small bf-link-remove';
+    remover.textContent = 'Desvincular esta tabela';
+    remover.addEventListener('click', () => {
+      desvincularFator(lista, f);
+      saveState();
+      renderFatores(b, els);
+      avisarVinculos('Tabela desvinculada. Seu fator atual foi mantido e pode ser editado separadamente.');
+    });
+    body.appendChild(remover);
+  }
+  details.append(summary, body);
+  return details;
 }
 
 function renderSeguros(b, els) {

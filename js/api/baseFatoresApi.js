@@ -3,6 +3,7 @@ import { parseNumeroCalculo } from '../simulador/calculadora-fator.js';
 
 const TAMANHO_PAGINA = 1000;
 export const MIGRACAO_FATORES = 'supabase/migrations/20261016_base_fatores_plano.sql';
+export const MIGRACAO_VINCULOS = 'supabase/migrations/20261020_base_fatores_vinculos.sql';
 
 function objeto(valor) {
   return valor !== null && typeof valor === 'object' && !Array.isArray(valor);
@@ -32,6 +33,27 @@ function identidade(row) {
   return JSON.stringify([nomeNormalizado(row.banco), dataISO(row.data),
     row.tipo === 'cartao' ? 'cartao' : 'margem', Number(row.prazo),
     String(row.plano ?? row.tabela ?? '').trim()]);
+}
+
+function grupoFator(valor) {
+  if (valor == null || valor === '') return null;
+  if (typeof valor !== 'string' || !valor.trim() || valor.trim().length > 128) {
+    throw new Error('Vínculo de fator inválido. Use um JSON exportado da Base de Fatores.');
+  }
+  return valor.trim();
+}
+
+function validarGrupos(linhas) {
+  const grupos = new Map();
+  for (const row of linhas) {
+    if (!row.grupo_fator) continue;
+    const chave = JSON.stringify([nomeNormalizado(row.banco), dataISO(row.data), row.tipo, grupoFator(row.grupo_fator)]);
+    const fator = parseNumeroCalculo(row.fator);
+    if (grupos.has(chave) && grupos.get(chave) !== fator) {
+      throw new Error(`As tabelas vinculadas em ${row.banco}, ${row.data}, ${row.tipo} precisam ter o mesmo fator. Atualize e envie todas as tabelas do vínculo juntas. Nenhum envio foi iniciado.`);
+    }
+    grupos.set(chave, fator);
+  }
 }
 
 export function mensagemErroFatores(erro) {
@@ -73,9 +95,11 @@ export function prepararFatores(base) {
           }
           const row = { banco: banco.trim(), convenio: 'INSS', data, tipo, prazo, fator, taxa,
             plano: String(item.plano ?? item.tabela ?? '').trim() };
+          if (Object.hasOwn(item, 'grupo_fator')) row.grupo_fator = grupoFator(item.grupo_fator);
           const chave = identidade(row);
           const anterior = linhas.get(chave);
-          if (anterior && (anterior.fator !== fator || anterior.taxa !== taxa)) {
+          if (anterior && (anterior.fator !== fator || anterior.taxa !== taxa ||
+              anterior.grupo_fator !== row.grupo_fator)) {
             throw new Error(`Há tabelas diferentes com o mesmo nome/prazo em ${banco}, ${data}. Dê um nome distinto para cada tabela.`);
           }
           linhas.set(chave, row);
@@ -84,6 +108,7 @@ export function prepararFatores(base) {
     }
   }
   if (!linhas.size) throw new Error('O arquivo não contém fatores para enviar. Nenhum dado foi alterado.');
+  validarGrupos(linhas.values());
   return [...linhas.values()];
 }
 
@@ -122,6 +147,8 @@ export function mesclarFatoresRemotos(rows, local = {}) {
       if (iguais.length === 1) plano = String(iguais[0].plano ?? iguais[0].tabela ?? '');
     }
     const item = { prazo: row.prazo, fator: row.fator, taxa: row.taxa ?? '', plano };
+    // Ausência da coluna em um schema antigo não apaga vínculos locais.
+    if (Object.hasOwn(row, 'grupo_fator')) item.grupo_fator = grupoFator(row.grupo_fator);
     const indice = lista.findIndex(atual => Number(atual.prazo) === Number(item.prazo) &&
       String(atual.plano ?? atual.tabela ?? '').trim() === plano);
     if (indice < 0) lista.push(item);
@@ -152,8 +179,8 @@ export function mesclarArquivoFatores(importado, local = {}) {
   return base;
 }
 
-async function colunaPlanoDisponivel() {
-  const { error } = await supabase.from('base_fatores').select('plano').limit(0);
+async function colunaDisponivel(nome) {
+  const { error } = await supabase.from('base_fatores').select(nome).limit(0);
   if (!error) return true;
   if (['42703', 'PGRST204'].includes(error.code)) return false;
   throw error;
@@ -164,9 +191,13 @@ export async function enviarFatoresRemotos(base) {
   const { data: sessao, error: erroSessao } = await supabase.auth.getUser();
   if (erroSessao) throw erroSessao;
   if (!sessao?.user) throw new Error('Entre novamente antes de enviar a Base de Fatores ao Supabase.');
-  const temPlano = await colunaPlanoDisponivel();
+  const temPlano = await colunaDisponivel('plano');
   if (!temPlano && linhas.some(row => row.plano)) {
     throw new Error(`O Supabase ainda não possui a coluna "plano". Execute ${MIGRACAO_FATORES} no SQL Editor e tente novamente. O arquivo foi mantido neste navegador; nenhum registro remoto foi alterado.`);
+  }
+  const temVinculos = await colunaDisponivel('grupo_fator');
+  if (!temVinculos && linhas.some(row => row.grupo_fator)) {
+    throw new Error(`O Supabase ainda não possui a coluna "grupo_fator". Execute ${MIGRACAO_VINCULOS} no SQL Editor para publicar os vínculos. Os dados continuam neste navegador; nenhum registro remoto foi alterado.`);
   }
   const atuais = await carregarFatoresRemotos();
   const porChave = new Map();
@@ -178,24 +209,33 @@ export async function enviarFatoresRemotos(base) {
   }
   const novos = [];
   const alteracoes = [];
+  const efetivas = new Map(porChave);
   let mantidos = 0;
   for (const row of linhas) {
     const anterior = porChave.get(identidade(row));
     const novo = { ...row };
+    efetivas.set(identidade(row), { ...anterior, ...row });
     if (anterior) {
       if (anterior.id == null) throw new Error('Um fator remoto está sem ID. Nenhum envio foi feito; confira a estrutura da tabela no Supabase.');
       const taxaAnterior = anterior.taxa == null || anterior.taxa === '' ? null : parseNumeroCalculo(anterior.taxa);
-      if (parseNumeroCalculo(anterior.fator) === row.fator && taxaAnterior === row.taxa) {
+      const mudouVinculo = temVinculos && Object.hasOwn(row, 'grupo_fator') &&
+        grupoFator(anterior.grupo_fator) !== row.grupo_fator;
+      if (parseNumeroCalculo(anterior.fator) === row.fator && taxaAnterior === row.taxa && !mudouVinculo) {
         mantidos++;
       } else {
         // ID apenas no filtro do UPDATE, nunca no conteúdo enviado para gravar.
-        alteracoes.push({ id: anterior.id, valores: { fator: row.fator, taxa: row.taxa } });
+        const valores = { fator: row.fator, taxa: row.taxa };
+        if (temVinculos && Object.hasOwn(row, 'grupo_fator')) valores.grupo_fator = row.grupo_fator;
+        alteracoes.push({ id: anterior.id, valores });
       }
     } else {
       if (!temPlano) delete novo.plano;
+      if (!temVinculos) delete novo.grupo_fator;
       novos.push(novo);
     }
   }
+  // Evita que um arquivo parcial altere só um membro de um vínculo já publicado.
+  validarGrupos(efetivas.values());
   let atualizados = 0;
   let inseridos = 0;
   try {

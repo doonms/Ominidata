@@ -11,7 +11,7 @@ function getDB(){
   const data = readFromStorage(BASE_INSS_KEY, BASE_INSS_FALLBACKS);
   return Array.isArray(data) ? data : [];
 }
-const esc = s => String(s ?? '').replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 const renderLogoLabel = nome => {
   const safe = esc(nome || 'Banco');
@@ -388,7 +388,7 @@ function secPrazosBanco(b, f){
 }
 
 // ---------- Render ----------
-function renderCardAvancado(b, f){
+export function renderDetalhesBanco(b, f = {}){
   const body = [
     secOperacoes(b),
     secPerfis(b),
@@ -401,13 +401,16 @@ function renderCardAvancado(b, f){
     secPrazosBanco(b, f)
   ].filter(Boolean).join('');
 
+  return body || '<div class="muted">Nenhuma informação detalhada disponível.</div>';
+}
+function renderCardAvancado(b, f){
   return `
     <details class="f-card">
       <summary class="f-head">
         <span class="f-title">${renderLogoLabel(b.nomeBanco || b.nome || '—')}</span>
       </summary>
       <div class="f-body">
-        ${body || '<div class="muted">Nenhuma informação detalhada disponível.</div>'}
+        ${renderDetalhesBanco(b, f)}
       </div>
     </details>`;
 }

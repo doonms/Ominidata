@@ -1,4 +1,5 @@
 import { aplicarFiltros, prazosPorIdade } from '../filtros/rapido.js';
+import { renderDetalhesBanco } from '../filtros/avancado.js';
 import { getLogoSrc } from '../utils/logo.js';
 
 export const PRODUTOS = {
@@ -33,7 +34,7 @@ export function definirLogo(img, nome, arquivo = '') {
   }
 }
 
-// Compartilha as funções de elegibilidade da Pesquisa Rápida.
+// Elegibilidade compartilhada; o Avançado acrescenta os detalhes já usados na Pesquisa.
 export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
   const form = document.querySelector('#sim-search-form');
   const results = document.querySelector('#sim-bank-results');
@@ -44,6 +45,8 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
   let timer;
 
   function ajustarExpansores() {
+    // Não redefinir observações expandidas enquanto o painel estiver recolhido.
+    if (!results.getBoundingClientRect().height) return;
     results.querySelectorAll('.sim-bank-observations').forEach(container => {
       const texto = container.querySelector('.sim-bank-observation-text');
       const toggle = container.querySelector('.sim-bank-expand');
@@ -75,6 +78,8 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
   }
 
   function pesquisar() {
+    const avancado = !!form.querySelector('#sim-modo-avancado')?.checked;
+    results.classList.toggle('is-advanced', avancado);
     if (!form.checkValidity()) {
       results.replaceChildren();
       count.textContent = 'Confira os filtros';
@@ -87,7 +92,8 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
     results.replaceChildren();
     count.textContent = `${lista.length} banco${lista.length === 1 ? '' : 's'}`;
     status.textContent = bancos.length
-      ? 'Clique em uma instituição para carregar suas condições no simulador.'
+      ? avancado ? 'Abra as regras do banco para consultar os detalhes. Clique na logo ou em Simular para carregar a simulação.'
+        : 'Clique em uma instituição para carregar suas condições no simulador.'
       : carregando ? 'Carregando as regras dos bancos…'
         : 'Nenhuma regra de banco disponível. O cálculo manual continua disponível abaixo.';
 
@@ -138,7 +144,7 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
       action.setAttribute('aria-label', `Carregar simulação de ${nome}`);
       button.append(img, title, detalhe);
       card.appendChild(button);
-      if (correspondente.obs) {
+      if (!avancado && correspondente.obs) {
         const observacoes = document.createElement('div');
         observacoes.className = 'sim-bank-observations';
         observacoes.id = `sim-bank-obs-${vistos.size}`;
@@ -161,6 +167,17 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
         });
         observacoes.append(texto, toggle);
         card.appendChild(observacoes);
+      }
+      if (avancado) {
+        const detalhes = document.createElement('details');
+        detalhes.className = 'sim-bank-advanced-details';
+        const summary = document.createElement('summary');
+        summary.textContent = 'Regras completas do banco';
+        const body = document.createElement('div');
+        body.className = 'sim-bank-advanced-body';
+        body.innerHTML = renderDetalhesBanco(banco, filtros);
+        detalhes.append(summary, body);
+        card.appendChild(detalhes);
       }
       card.appendChild(action);
       const selecionar = () => {

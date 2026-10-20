@@ -48,6 +48,9 @@ export const supabase = {
           if(this.columns==='plano') return window.__qaSemPlano
             ? {data:null,error:{code:'42703',message:'column base_fatores.plano does not exist'}}
             : {data:[],error:null};
+          if(this.columns==='grupo_fator') return window.__qaSemVinculos
+            ? {data:null,error:{code:'42703',message:'column base_fatores.grupo_fator does not exist'}}
+            : {data:[],error:null};
           window.__qaRanges.push([this.first,this.last]);
           const snapshot=structuredClone(window.__qaRows);
           if(window.__qaAtraso) await new Promise(r=>setTimeout(r,window.__qaAtraso));
@@ -305,6 +308,7 @@ def main():
         expect(page.locator('#bf-slBanco')).to_have_value('BancodoBrasil')
         page.goto(base + '/pages/simulador.html')
         expect(page.locator('#sim-base-status')).to_contain_text('Data de fatores inválida')
+        page.locator('label:has(#modoParcela)').click()
         page.locator('#inpValorDesejado').fill('5000')
         page.locator('#inpFatorManual').fill('0,02')
         expect(page.locator('#resParcela')).to_contain_text('100,00')
