@@ -9,24 +9,25 @@
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/filtros.css" />
   <link rel="stylesheet" href="../css/contatos.css" />
+  <link rel="stylesheet" href="../css/layout-operacional.css">
 </head>
-<body>
+<body class="od-page">
   <button class="menu-btn" id="menuBtn">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
   <div class="wrap">
-    <div class="header header-center">
-      <div class="logo-wrap">
-        <div class="rot-bg" aria-hidden="true"></div>
-        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+    <header class="header od-hero ">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Consulta operacional</span><h1>Contatos dos Bancos</h1><p>Telefones, emails e canais de atendimento para apoiar sua operação.</p></div>
       </div>
-      <h1>Contatos dos Bancos</h1>
-    </div>
+      <span class="od-badge">Central de consulta</span>
+    </header>
 
     <div class="contatos-container">
       <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Buscar banco ou contato..." />
-        <button id="showAllBtn">&#8635;</button>
+        <input type="search" id="searchInput" aria-label="Buscar banco" placeholder="Buscar banco ou contato..." />
+        <button id="showAllBtn" aria-label="Limpar busca e mostrar todos">Mostrar todos</button>
       </div>
 
       <div id="bankList" class="bank-list"></div>

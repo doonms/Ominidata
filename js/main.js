@@ -137,7 +137,14 @@ function render(){
 
     renderOutrasInfos(bancos, idx);
 
-    if(openState[idx]) card.querySelector('.card-body').style.display = 'block';
+    const aberto = !!openState[idx];
+    const body = card.querySelector('.card-body');
+    body.id = `inss-banco-${idx}`;
+    if(aberto) body.style.display = 'block';
+    const toggle = card.querySelector('button[data-open]');
+    toggle.textContent = aberto ? 'Recolher' : 'Expandir';
+    toggle.setAttribute('aria-expanded', String(aberto));
+    toggle.setAttribute('aria-controls', body.id);
   });
   salvarStorage(KEY, bancos);
 }
@@ -214,9 +221,10 @@ export function initBase(){
 /* ================== Delegation ================== */
 document.addEventListener('click', e=>{
   const t = e.target;
+  if (!listEl?.isConnected || !listEl.contains(t)) return;
 
   // Abrir/Remover card
-  if(t.matches('button[data-open]')){ openState[t.getAttribute('data-open')] = true; render(); }
+  if(t.matches('button[data-open]')){ const idx = t.getAttribute('data-open'); openState[idx] = !openState[idx]; render(); return; }
   if(t.matches('button[data-rem]')){ const i = Number(t.getAttribute('data-rem')); if(confirm('Remover banco?')){ bancos.splice(i,1); salvarStorage(KEY, bancos); render(); } }
 
   // Head click toggle

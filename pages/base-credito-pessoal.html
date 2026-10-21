@@ -1,41 +1,39 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Base Crédito Pessoal — Protótipo</title>
-  <link rel="icon" href="../imagens/logo.png" type="image/png">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Crédito Pessoal — Ominidata</title>
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png">
   <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/layout-operacional.css">
+</head>
+<body class="od-page">
+  <button id="menuBtn" class="menu-btn" aria-label="Abrir menu de navegação">&#9776;</button>
+  <nav id="sidebar" class="sidebar" aria-label="Menu principal"></nav>
+  <div class="wrap">
+    <header class="header od-hero ">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Gestão operacional</span><h1>Crédito Pessoal</h1><p>Espaço de gestão das condições para operações de crédito pessoal.</p></div>
+      </div>
+      <span class="od-badge">Em preparação</span>
+    </header>
+    <main class="panel od-empty">
+      <span class="od-eyebrow">Crédito pessoal</span>
+      <h2>Uma nova base para a operação</h2>
+      <p>O cadastro de Crédito Pessoal ainda não está disponível nesta página. Enquanto isso, as ferramentas de pesquisa e simulação INSS continuam acessíveis.</p>
+      <div class="od-actions"><a class="od-link-button" href="pesquisa.html">Ir para a pesquisa</a><a class="od-link-button od-secondary" href="simulador.html">Simulador INSS</a></div>
+    </main>
+  </div>
   <script type="module">
     import { criarMenuLateral } from '../js/components/menuLateral.js';
     criarMenuLateral();
   </script>
-</head>
-<body>
-  <button id="menuBtn" class="menu-btn">☰</button>
-  <nav id="sidebar" class="sidebar"></nav>
-
-  <div class="wrap">
-    <header class="header">
-      <div class="logo-wrap">
-        <div class="rot-bg"></div>
-        <img src="../imagens/logo.png" class="logo-img" alt="Logo"/>
-      </div>
-      <h1>Base Crédito Pessoal</h1>
-    </header>
-
-    <div class="panel">
-      <p style="color:var(--muted);font-size:14px">
-        Conteúdo da base de Crédito Pessoal.
-      </p>
-    </div>
-  </div>
   <script>
     const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
     const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) window.location.href = loginPath;
   </script>
 </body>
 </html>

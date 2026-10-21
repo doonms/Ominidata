@@ -1,123 +1,28 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login — Ominidata</title>
-  <link rel="stylesheet" href="../css/style.css" />
-
-  <style>
-    body {
-      background: #01131f;
-      color: #e8f6ff;
-      font-family: Inter, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-
-    .login-box {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      padding: 30px 40px;
-      border-radius: 14px;
-      width: 340px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      text-align: center;
-    }
-
-    .login-box input {
-      width: 100%;
-      margin-top: 6px;
-      padding: 10px;
-      background: rgba(255,255,255,0.07);
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-    }
-
-    .login-btn {
-      width: 100%;
-      margin-top: 20px;
-      padding: 10px;
-      background: #0078ff;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .logo-wrap {
-      margin: 0 auto;
-      width: 150px;
-      height: 150px;
-      position: relative;
-    }
-
-    .rot-bg {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background-image: url('../imagens/fundo.png');
-      background-size: cover;
-      background-position: center;
-      animation: spin 16s linear infinite;
-      filter: contrast(1.1) saturate(1.1);
-      mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 62%, rgba(0,0,0,0) 69%);
-      -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 62%, rgba(0,0,0,0) 69%);
-      opacity: 0.45;
-    }
-
-    .logo-img {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 78px;
-      height: 78px;
-      object-fit: contain;
-      z-index: 1;
-    }
-
-    .logo-title {
-      margin: 8px 0 12px;
-      font-size: 1.4rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: #cfe7ff;
-    }
-
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Entrar — Ominidata</title>
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/layout-operacional.css">
 </head>
-
-<body>
-  <div class="login-box">
-    <div class="logo-wrap">
-      <div class="rot-bg"></div>
-      <img src="../imagens/logos/logo.png" class="logo-img" alt="Ominidata" />
+<body class="od-page od-login">
+  <main class="login-box">
+    <div class="od-login-brand">
+      <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" class="logo-img" alt="Ominidata"></div>
+      <span class="od-eyebrow">Sua central operacional</span>
+      <h1>Bem-vindo ao Ominidata</h1>
+      <p>Entre para consultar regras, organizar suas bases e preparar simulações.</p>
     </div>
-    <p class="logo-title">Ominidata</p>
-
-    <input type="email" id="email" placeholder="Email" autocomplete="username" />
-    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password" />
-
-    <button class="login-btn" id="loginBtn">Entrar</button>
-
-    <p id="msg" style="margin-top:15px;color:#ff8080;"></p>
-  </div>
-
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="seu@email.com" autocomplete="username">
+    <label for="senha">Senha</label>
+    <input type="password" id="senha" placeholder="Digite sua senha" autocomplete="current-password">
+    <button type="button" class="login-btn" id="loginBtn">Entrar</button>
+    <p id="msg" role="status" aria-live="polite"></p>
+  </main>
   <script type="module" src="../js/login.js"></script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
-  </script>
 </body>
 </html>

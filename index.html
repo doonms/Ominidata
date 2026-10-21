@@ -1,38 +1,38 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Ominidata - Protótipo</title>
-  <link rel="icon" href="imagens/logos/logo.png" type="image/png"/>
-  <link rel="stylesheet" href="css/style.css"/>
-  <link rel="manifest" href="/manifest.json"/>
-  <meta name="theme-color" content="#021726"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ominidata — Início</title>
+  <link rel="icon" href="imagens/logos/logo.png" type="image/png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/layout-operacional.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#021726">
 </head>
-<body>
-  <!-- Botão/menu para quando abrir esta página diretamente -->
-  <button id="menuBtn" class="menu-btn">&#9776;</button>
-  <nav id="sidebar" class="sidebar"></nav>
-
+<body class="od-page">
+  <button id="menuBtn" class="menu-btn" aria-label="Abrir menu de navegação">&#9776;</button>
+  <nav id="sidebar" class="sidebar" aria-label="Menu principal"></nav>
   <div class="wrap">
-    <header class="header home-header">
-      <div class="logo-wrap">
-        <div class="rot-bg" aria-hidden="true"></div>
-        <img src="imagens/logos/logo.png" alt="Logo" class="logo-img"/>
+    <header class="header od-hero home-header">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Ominidata · por Dominique Alves</span><h1>Sua operação começa aqui</h1><p>Pesquise regras, encontre o banco e prepare a simulação do cliente.</p></div>
       </div>
-      <h1>Ominidata - por Dominique Alves</h1>
+      <span class="od-badge">Central operacional</span>
     </header>
-
-    <div class="panel" style="text-align:center">
-      <h2 style="margin:0 0 12px;color:#9fb0c6;font-weight:600;font-size:16px">
-        Base de dados + Simulador de Operações
-      </h2>
-      <p style="margin:0;color:#cfe7ff">
-        Utilize o menu lateral para navegar entre as páginas de consulta, manutenção de fatores e o simulador.
-      </p>
-    </div>
+    <main class="panel">
+      <span class="od-eyebrow">Acesso rápido</span>
+      <h2 class="od-section-title">O que vamos fazer hoje?</h2>
+      <p class="od-description">As ferramentas da operação, reunidas em um só lugar.</p>
+      <div class="od-home-grid">
+        <a class="od-home-link" href="pages/pesquisa.html"><strong>Pesquisar bancos</strong><p>Consulte opções por idade, espécie, assinatura e produto.</p><span>Abrir pesquisa →</span></a>
+        <a class="od-home-link" href="pages/simulador.html"><strong>Montar uma simulação</strong><p>Calcule valores e parcelas com tabelas cadastradas ou fator manual.</p><span>Abrir simulador →</span></a>
+        <a class="od-home-link" href="pages/bancos.html"><strong>Bancos aceitos</strong><p>Veja bancos aceitos e restrições informadas pelos parceiros.</p><span>Consultar bancos →</span></a>
+        <a class="od-home-link" href="pages/contatos.html"><strong>Contatos da operação</strong><p>Encontre telefones, emails e canais de atendimento dos bancos.</p><span>Ver contatos →</span></a>
+      </div>
+    </main>
   </div>
-
   <script type="module">
     import { carregarMenuLateral } from './js/components/menuLateral.js';
     import { iniciarSPA } from './js/spaRouter.js';
@@ -42,9 +42,7 @@
   <script>
     const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
     const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) window.location.href = loginPath;
   </script>
 </body>
 </html>

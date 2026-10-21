@@ -1,5 +1,6 @@
-import { KEY, esc, normalize, lerStorage, salvarStorage, novoBancoPadrao, novoConvenioPadrao, parseRange } from './components/utilBaseOutros.js';
-import { supabase } from './supa/supabaseClient.js';
+import { KEY, esc, normalize, lerStorage, salvarStorage, novoBancoPadrao, novoConvenioPadrao, parseRange, OPERACOES_CONVENIO, PERFIS_CONVENIO, FAIXAS_CONVENIO, TIPO_PADRAO_BANCO } from './components/utilBaseOutros.js';
+import { carregarBaseOutros, enviarBaseOutros, prepararBaseOutros, mesclarBaseOutros, mensagemErroOutros } from './api/baseOutrosConveniosApi.js';
+import { getLogoSrc, getLogoFallbackAttr } from './utils/logo.js';
 
 let listEl;
 let addBtn;
@@ -7,6 +8,13 @@ let fileInput;
 let saveBtn;
 let uploadBaseBtn;
 let uploadBaseFile;
+let statusEl;
+let reloadBtn;
+let uploadJsonBtn;
+let publicando = false;
+let consultaAtual = 0;
+const ULTIMA_LEITURA = KEY + '_publicada';
+const BACKUP = KEY + '_backup';
 
 const rawBancos = lerStorage(KEY).filter((item) => item && typeof item === 'object');
 let bancos = rawBancos.map((banco) => normalize(banco));
@@ -17,10 +25,12 @@ let convenioFilters = {};
 const novoPrazo = () => ({ idade: '', parcelas: '', obs: '' });
 
 export function initBase() {
+  bancos = lerStorage(KEY).filter(item => item && typeof item === 'object').map(normalize);
   captureElements();
   bindStaticHandlers();
   syncStates();
   render();
+  if (!publicando) carregarBaseOutrosRemota();
 }
 
 function captureElements() {
@@ -30,18 +40,24 @@ function captureElements() {
   saveBtn = document.getElementById('save');
   uploadBaseBtn = document.getElementById('uploadBaseOutrosBtn');
   uploadBaseFile = document.getElementById('uploadBaseOutrosFile');
+  statusEl = document.getElementById('baseOutrosStatus');
+  reloadBtn = document.getElementById('reloadBaseOutrosBtn');
+  uploadJsonBtn = document.getElementById('uploadBaseOutrosJsonBtn');
 }
 
 function bindStaticHandlers() {
   if (addBtn) addBtn.onclick = handleAddBanco;
   if (fileInput) fileInput.onchange = handleFileChange;
   if (saveBtn) saveBtn.onclick = handleSaveClick;
-  if (uploadBaseBtn && uploadBaseFile) {
-    uploadBaseBtn.onclick = () => uploadBaseFile.click();
+  if (reloadBtn) reloadBtn.onclick = () => carregarBaseOutrosRemota();
+  if (uploadBaseBtn) uploadBaseBtn.onclick = () => uploadBaseOutros();
+  if (uploadJsonBtn && uploadBaseFile) {
+    uploadJsonBtn.onclick = () => uploadBaseFile.click();
     uploadBaseFile.onchange = async (e) => {
       const selected = e.target.files?.[0];
       if (!selected) return;
-      await uploadBaseOutros(selected);
+      try { await uploadBaseOutros(selected); }
+      finally { e.target.value = ''; }
     };
   }
 
@@ -89,7 +105,9 @@ function renderBancoCard(banco, idx) {
   const isOpen = bancoOpenState[idx] ?? false;
   const filterValue = convenioFilters[idx] || '';
   const normalizedFilter = filterValue.trim().toLowerCase();
-  const convenios = Array.isArray(banco.convenios) ? banco.convenios : [];
+  const convenios = (Array.isArray(banco.convenios) ? banco.convenios : []).slice()
+    .sort((a, b) => Number(b.tipo === TIPO_PADRAO_BANCO) - Number(a.tipo === TIPO_PADRAO_BANCO));
+  const temPadrao = convenios.some(conv => conv.tipo === TIPO_PADRAO_BANCO);
   const filteredConvenios = normalizedFilter
     ? convenios.filter(
         (conv) =>
@@ -103,20 +121,21 @@ function renderBancoCard(banco, idx) {
     : `<p class="muted">Nenhum convênio encontrado ${normalizedFilter ? `para "${esc(filterValue)}"` : ''}.</p>`;
 
   return `
-    <div class="card-head">
-      <div>
-        <strong style="font-size:15px;color:#dff3ff">${esc(banco.nome || 'Novo Banco')}</strong>
-      </div>
+    <div class="card-head" data-banco-header="${idx}">
+      <button type="button" class="od-bank-title od-card-toggle" data-toggle-banco="${idx}" aria-expanded="${isOpen}" aria-controls="outros-banco-${idx}">
+        <img class="logo-label-img" src="${getLogoSrc(banco.nome || '')}" alt="Logo do banco" onerror="${getLogoFallbackAttr()}">
+        <span class="od-card-copy"><strong>${esc(banco.nome || 'Novo Banco')}</strong><small>${convenios.length} convênio${convenios.length === 1 ? '' : 's'} cadastrado${convenios.length === 1 ? '' : 's'}</small></span>
+        <span class="od-card-chevron" aria-hidden="true">›</span>
+      </button>
       <div class="card-head-actions">
         <label class="inline-checkbox">
           <input type="checkbox" data-bank-field="${idx}:suspenso" ${banco.suspenso ? 'checked' : ''}/>
           Banco suspenso
         </label>
-        <button type="button" class="small" data-toggle-banco="${idx}">${isOpen ? 'Fechar' : 'Abrir'}</button>
-        <button type="button" class="btn-danger" data-remove-banco="${idx}">&#128465;</button>
+        <button type="button" class="btn-danger" data-remove-banco="${idx}" aria-label="Remover banco">&#128465;</button>
       </div>
     </div>
-    <div class="card-body" style="display:${isOpen ? 'block' : 'none'}">
+    <div class="card-body" id="outros-banco-${idx}" style="display:${isOpen ? 'block' : 'none'}">
       <div class="row">
         <div class="col">
           <label>Nome do banco</label>
@@ -132,6 +151,7 @@ function renderBancoCard(banco, idx) {
         <div class="col">
           <label>Adicionar convênio</label>
           <div class="convenio-type-buttons">
+            <button type="button" class="small" data-add-convenio="${idx}" data-type="${TIPO_PADRAO_BANCO}">${temPadrao ? 'Editar padrão banco' : '+ Padrão banco'}</button>
             <button type="button" class="small" data-add-convenio="${idx}" data-type="prefeitura">+ Prefeitura</button>
             <button type="button" class="small" data-add-convenio="${idx}" data-type="governo">+ Governo</button>
             <button type="button" class="small" data-add-convenio="${idx}" data-type="siape">+ SIAPE</button>
@@ -139,6 +159,9 @@ function renderBancoCard(banco, idx) {
         </div>
       </div>
 
+      <p class="od-description">${temPadrao
+        ? 'Novos convênios copiam o Padrão banco uma única vez. Depois, cada um é salvo de forma independente.'
+        : 'Adicione o Padrão banco para usá-lo como modelo dos próximos convênios. Os já cadastrados não serão alterados.'}</p>
       <div class="convenios-wrapper">
         ${conveniosHtml}
       </div>
@@ -231,28 +254,32 @@ function renderConvenioCard(conv, bancoIdx) {
   const tipoLabel = formatTipoLabel(conv.tipo);
   const baseKey = `${bancoIdx}:${conv.id}`;
   const isOpen = convenioOpenState[bancoIdx]?.[conv.id] ?? false;
-  const showRogo = conv.aceitaClienteNaoAssina;
   const showContrato60 = conv.contrato60;
   const showNaoAssina = conv.aceitaClienteNaoAssina;
+  const isPadrao = conv.tipo === TIPO_PADRAO_BANCO;
 
   return `
     <div class="convenio-card" data-convenio="${conv.id}">
-      <div class="convenio-head">
-        <div>
+      <div class="convenio-head" data-convenio-header="${baseKey}">
+        <button type="button" class="od-card-toggle" data-toggle-convenio="${baseKey}" aria-expanded="${isOpen}" aria-controls="outros-convenio-${esc(baseKey)}">
+          <span class="od-card-copy">
           <span class="convenio-tag">${tipoLabel}</span>
           <strong>${esc(conv.nome || 'Convênio sem nome')}</strong>
-        </div>
+          </span>
+          <span class="od-card-chevron" aria-hidden="true">›</span>
+        </button>
         <div class="convenio-head-actions">
-          <button type="button" class="small" data-toggle-convenio="${baseKey}">${isOpen ? 'Fechar' : 'Abrir'}</button>
-          <button type="button" class="btn-danger" data-remove-convenio="${baseKey}">&#128465;</button>
+          <button type="button" class="btn-danger" data-remove-convenio="${baseKey}" aria-label="Remover convênio">&#128465;</button>
         </div>
       </div>
 
-      <div class="convenio-body" style="display:${isOpen ? 'block' : 'none'}">
+      <div class="convenio-body" id="outros-convenio-${esc(baseKey)}" style="display:${isOpen ? 'block' : 'none'}">
+        ${isPadrao ? '<p class="od-description">Modelo deste banco. Suas condições são copiadas somente ao criar um novo convênio; alterações aqui não modificam os convênios já cadastrados.</p>' : ''}
         <div class="row">
           <div class="col">
             <label>Tipo</label>
-            <select data-conv-field="${baseKey}:tipo">
+            <select data-conv-field="${baseKey}:tipo" ${isPadrao ? 'disabled' : ''}>
+              ${isPadrao ? renderTipoOption(TIPO_PADRAO_BANCO, conv.tipo) : ''}
               ${renderTipoOption('prefeitura', conv.tipo)}
               ${renderTipoOption('governo', conv.tipo)}
               ${renderTipoOption('siape', conv.tipo)}
@@ -260,7 +287,7 @@ function renderConvenioCard(conv, bancoIdx) {
           </div>
           <div class="col">
             <label>Nome do convênio</label>
-            <input data-conv-field="${baseKey}:nome" value="${esc(conv.nome || '')}" placeholder="Ex: Prefeitura de Belo Horizonte"/>
+            <input data-conv-field="${baseKey}:nome" value="${esc(conv.nome || '')}" ${isPadrao ? 'readonly' : ''} placeholder="Ex: Prefeitura de Belo Horizonte"/>
           </div>
         </div>
 
@@ -283,28 +310,18 @@ function renderConvenioCard(conv, bancoIdx) {
           </div>
         </div>
 
-        <div class="subpanel">
+        ${renderFaixasCondicionais(conv, bancoIdx)}
+
+        <div class="subpanel" data-conv-section="perfis">
           <h3>Perfis aceitos</h3>
           <div class="checkbox-grid">
-            ${checkbox('Cliente não assinante', `${baseKey}:aceitaClienteNaoAssina`, conv.aceitaClienteNaoAssina)}
-            ${checkbox('Cliente LOAS', `${baseKey}:aceitaLoas`, conv.aceitaLoas)}
-            ${checkbox('Cliente Invalidez', `${baseKey}:aceitaInvalidez`, conv.aceitaInvalidez)}
-            ${checkbox('Cliente Pensão', `${baseKey}:aceitaClientePensao`, conv.aceitaClientePensao)}
+            ${checkbox('Celetista', `${baseKey}:aceitaCeletista`, conv.aceitaCeletista)}
+            ${checkbox('Temporário', `${baseKey}:aceitaTemporario`, conv.aceitaTemporario)}
           </div>
-          <div class="rogo-wrap" style="display:${showRogo ? 'block' : 'none'}">
-            <label>Tipos de rogo aceitos</label>
-            <div class="checkbox-grid">
-              ${rogoCheckbox(baseKey, conv, 'pai', 'Pai')}
-              ${rogoCheckbox(baseKey, conv, 'mae', 'Mãe')}
-              ${rogoCheckbox(baseKey, conv, 'irmao', 'Irmão')}
-              ${rogoCheckbox(baseKey, conv, 'conjuge', 'Cônjuge')}
-              ${rogoCheckbox(baseKey, conv, 'filhos', 'Filhos')}
-              ${rogoCheckbox(baseKey, conv, 'netos', 'Netos')}
-              ${rogoCheckbox(baseKey, conv, 'avos', 'Avós')}
-            </div>
-            <input data-conv-field="${baseKey}:rogoOutros" value="${esc(conv.rogoOutros || '')}" placeholder="Outros tipos de rogo"/>
-          </div>
+          <label for="outros-perfis-${esc(baseKey)}">Outros perfis</label>
+          <input id="outros-perfis-${esc(baseKey)}" data-conv-field="${baseKey}:perfisOutros" value="${esc(conv.perfisOutros || '')}" placeholder="Informe outros perfis aceitos"/>
         </div>
+        ${renderFaixasCondicionais(conv, bancoIdx, PERFIS_CONVENIO, true)}
 
         <div class="subpanel">
           <h3>Documentos aceitos</h3>
@@ -383,14 +400,6 @@ function renderConvenioCard(conv, bancoIdx) {
         </div>
 
         <div class="subpanel">
-          <h3>Geral — Prazos por idade (Cartão)</h3>
-          <div class="prazo-list">
-            ${renderPrazosCartao(conv, bancoIdx)}
-          </div>
-          <button type="button" class="small" data-conv-add-prazo="${baseKey}">+ Adicionar prazo</button>
-        </div>
-
-        <div class="subpanel">
           <h3>Observações gerais</h3>
           <textarea data-conv-field="${baseKey}:observacoes" rows="3" placeholder="Anote aqui qualquer detalhe adicional">${esc(conv.observacoes || '')}</textarea>
         </div>
@@ -405,17 +414,12 @@ function renderTipoOption(value, current) {
 }
 
 function formatTipoLabel(tipo = '') {
-  const map = { prefeitura: 'Prefeitura', governo: 'Governo', siape: 'SIAPE' };
+  const map = { [TIPO_PADRAO_BANCO]: 'Padrão banco', prefeitura: 'Prefeitura', governo: 'Governo', siape: 'SIAPE' };
   return map[tipo] || 'Convênio';
 }
 
 function checkbox(label, dataKey, checked) {
   return `<label><input type="checkbox" data-conv-field="${dataKey}" ${checked ? 'checked' : ''}/> ${label}</label>`;
-}
-
-function rogoCheckbox(baseKey, conv, value, label) {
-  const checked = (conv.rogo || []).includes(value);
-  return `<label><input type="checkbox" data-conv-array="${baseKey}:rogo" data-value="${value}" ${checked ? 'checked' : ''}/> ${label}</label>`;
 }
 
 function documentoCheckbox(baseKey, conv, value, label) {
@@ -428,17 +432,30 @@ function conditionalTextarea(show, dataKey, value, placeholder) {
   return `<textarea class="small-row-text" data-conv-field="${dataKey}" rows="1" placeholder="${placeholder}">${esc(value || '')}</textarea>`;
 }
 
-function renderPrazosCartao(conv, bancoIdx) {
-  const list = Array.isArray(conv.prazosCartao) && conv.prazosCartao.length ? conv.prazosCartao : [novoPrazo()];
+function renderFaixasCondicionais(conv, bancoIdx, grupos = OPERACOES_CONVENIO, perfil = false) {
+  const selecionadas = grupos.filter(op => conv[op.campo]);
+  if (!selecionadas.length) return perfil ? '' : '<p class="od-description">Selecione uma operação para cadastrar suas faixas de idade e prazos.</p>';
+  return selecionadas.map(op => `
+    <section class="subpanel od-operation-ranges" ${perfil ? 'data-conv-perfil' : 'data-conv-operacao'}="${op.prazos}">
+      <h3>${op.titulo} — Faixas de idade e prazos</h3>
+      <p class="od-description">Condições exclusivas ${perfil ? 'deste perfil' : 'desta operação'} neste convênio.</p>
+      <div class="prazo-list">${renderPrazosOperacao(conv, bancoIdx, op)}</div>
+      <button type="button" class="small" data-conv-add-prazo="${bancoIdx}:${conv.id}:${op.prazos}">+ Adicionar faixa de idade</button>
+    </section>
+  `).join('');
+}
+
+function renderPrazosOperacao(conv, bancoIdx, op) {
+  const list = Array.isArray(conv[op.prazos]) && conv[op.prazos].length ? conv[op.prazos] : [novoPrazo()];
   return list
     .map((prazo, prazoIdx) => {
-      const path = `${bancoIdx}:${conv.id}:${prazoIdx}`;
+      const path = `${bancoIdx}:${conv.id}:${op.prazos}:${prazoIdx}`;
       return `
         <div class="prazo-row">
-          <input data-conv-prazo="${path}:idade" placeholder="Idade (ex: 60-75)" value="${esc(prazo.idade || '')}"/>
-          <input data-conv-prazo="${path}:parcelas" type="number" min="0" max="999" placeholder="Parcelas" value="${esc(prazo.parcelas || '')}"/>
-          <input data-conv-prazo="${path}:obs" placeholder="Observações" value="${esc(prazo.obs || '')}"/>
-          <button type="button" class="icon danger" data-conv-remove-prazo="${path}">&#128465;</button>
+          <input data-conv-prazo="${path}:idade" aria-label="Faixa de idade de ${op.titulo}" placeholder="Idade (ex: 60-75)" value="${esc(prazo.idade ?? '')}"/>
+          <input data-conv-prazo="${path}:parcelas" type="number" min="0" max="999" aria-label="Prazo de ${op.titulo}" placeholder="Parcelas" value="${esc(prazo.parcelas ?? '')}"/>
+          <input data-conv-prazo="${path}:obs" aria-label="Observações de ${op.titulo}" placeholder="Observações" value="${esc(prazo.obs ?? '')}"/>
+          <button type="button" class="icon danger" data-conv-remove-prazo="${path}" aria-label="Remover faixa de idade de ${op.titulo}">&#128465;</button>
         </div>
       `;
     })
@@ -460,14 +477,15 @@ function handleFileChange(event) {
   reader.onload = (ev) => {
     try {
       const parsed = JSON.parse(ev.target.result || '[]');
-      const arr = Array.isArray(parsed) ? parsed.filter((item) => item && typeof item === 'object') : [];
-      bancos = arr.map((item) => normalize(item));
+      const arr = prepararBaseOutros(parsed);
+      guardarBackup();
+      bancos = arr;
       syncStates();
       salvarStorage(KEY, bancos);
       render();
       alert('Arquivo carregado e salvo.');
     } catch {
-      alert('JSON inválido.');
+      alert('JSON inválido. Confira os nomes dos bancos e use um arquivo exportado desta página. Os dados anteriores foram preservados.');
     }
   };
   reader.readAsText(file);
@@ -483,11 +501,17 @@ function handleSaveClick() {
 }
 
 function handleClick(event) {
+  const header = event.target.closest('[data-banco-header], [data-convenio-header]');
+  if (header && !event.target.closest('button, input, select, textarea, label, a, .card-head-actions, .convenio-head-actions')) {
+    header.querySelector('[data-toggle-banco], [data-toggle-convenio]')?.click();
+    return;
+  }
   const toggleBancoBtn = event.target.closest('[data-toggle-banco]');
   if (toggleBancoBtn) {
     const idx = Number(toggleBancoBtn.dataset.toggleBanco);
     bancoOpenState[idx] = !bancoOpenState[idx];
     render();
+    listEl.querySelector(`[data-toggle-banco="${idx}"]`)?.focus({ preventScroll: true });
     return;
   }
 
@@ -498,6 +522,7 @@ function handleClick(event) {
     convenioOpenState[idx] = convenioOpenState[idx] || {};
     convenioOpenState[idx][convId] = !convenioOpenState[idx][convId];
     render();
+    listEl.querySelector(`[data-toggle-convenio="${CSS.escape(toggleConvenioBtn.dataset.toggleConvenio)}"]`)?.focus({ preventScroll: true });
     return;
   }
 
@@ -599,8 +624,13 @@ function handleClick(event) {
     const banco = bancos[idx];
     if (!banco) return;
     banco.convenios = banco.convenios || [];
-    banco.convenios.push(novoConvenioPadrao(tipo));
+    const modelo = banco.convenios.find(conv => conv.tipo === TIPO_PADRAO_BANCO);
+    const convenio = tipo === TIPO_PADRAO_BANCO && modelo ? modelo : novoConvenioPadrao(tipo, modelo);
+    if (!banco.convenios.includes(convenio)) banco.convenios.push(convenio);
     syncStates();
+    bancoOpenState[idx] = true;
+    convenioFilters[idx] = '';
+    convenioOpenState[idx][convenio.id] = true;
     salvarStorage(KEY, bancos);
     render();
     return;
@@ -612,7 +642,11 @@ function handleClick(event) {
     const idx = Number(idxStr);
     const banco = bancos[idx];
     if (!banco) return;
-    if (confirm('Remover este convênio?')) {
+    const convenio = (banco.convenios || []).find(conv => conv.id === convId);
+    const mensagem = convenio?.tipo === TIPO_PADRAO_BANCO
+      ? 'Remover o Padrão banco? Os convênios já criados continuarão com seus dados, sem alterações.'
+      : 'Remover este convênio?';
+    if (confirm(mensagem)) {
       banco.convenios = (banco.convenios || []).filter((conv) => conv.id !== convId);
       syncStates();
       salvarStorage(KEY, bancos);
@@ -623,11 +657,11 @@ function handleClick(event) {
 
   const addPrazoBtn = event.target.closest('[data-conv-add-prazo]');
   if (addPrazoBtn) {
-    const [idxStr, convId] = addPrazoBtn.dataset.convAddPrazo.split(':');
+    const [idxStr, convId, operacao] = addPrazoBtn.dataset.convAddPrazo.split(':');
     const meta = resolveConvenio(idxStr, convId);
-    if (!meta?.convenio) return;
-    meta.convenio.prazosCartao = meta.convenio.prazosCartao || [];
-    meta.convenio.prazosCartao.push(novoPrazo());
+    if (!meta?.convenio || !FAIXAS_CONVENIO.some(op => op.prazos === operacao)) return;
+    meta.convenio[operacao] = meta.convenio[operacao] || [];
+    meta.convenio[operacao].push(novoPrazo());
     salvarStorage(KEY, bancos);
     render();
     return;
@@ -635,14 +669,14 @@ function handleClick(event) {
 
   const removePrazoBtn = event.target.closest('[data-conv-remove-prazo]');
   if (removePrazoBtn) {
-    const [idxStr, convId, prazoIdxStr] = removePrazoBtn.dataset.convRemovePrazo.split(':');
+    const [idxStr, convId, operacao, prazoIdxStr] = removePrazoBtn.dataset.convRemovePrazo.split(':');
     const meta = resolveConvenio(idxStr, convId);
-    if (!meta?.convenio) return;
+    if (!meta?.convenio || !FAIXAS_CONVENIO.some(op => op.prazos === operacao)) return;
     const prazoIdx = Number(prazoIdxStr);
-    if (Number.isNaN(prazoIdx)) return;
-    meta.convenio.prazosCartao.splice(prazoIdx, 1);
-    if (!meta.convenio.prazosCartao.length) {
-      meta.convenio.prazosCartao.push(novoPrazo());
+    if (!Number.isSafeInteger(prazoIdx) || prazoIdx < 0 || !meta.convenio[operacao]?.[prazoIdx]) return;
+    meta.convenio[operacao].splice(prazoIdx, 1);
+    if (!meta.convenio[operacao].length) {
+      meta.convenio[operacao].push(novoPrazo());
     }
     salvarStorage(KEY, bancos);
     render();
@@ -662,6 +696,14 @@ function handleClick(event) {
 
 function handleInput(event) {
   const el = event.target;
+  if (el.matches('[data-bank-field]:not([type=checkbox])')) {
+    updateBancoField(el);
+    return;
+  }
+  if (el.matches('[data-conv-field]:not([type=checkbox])')) {
+    updateConvenioField(el);
+    return;
+  }
   if (el.matches('[data-link]')) {
     const [idxStr, linkIdxStr] = (el.dataset.link || '').split(':');
     const idx = Number(idxStr);
@@ -700,8 +742,12 @@ function handleInput(event) {
 
   if (el.matches('[data-convenio-search]')) {
     const idx = Number(el.dataset.convenioSearch);
+    const posicao = el.selectionStart;
     convenioFilters[idx] = el.value;
     render();
+    const campo = listEl.querySelector(`[data-convenio-search="${idx}"]`);
+    campo?.focus({ preventScroll: true });
+    if (campo && posicao != null) campo.setSelectionRange(posicao, posicao);
     return;
   }
 
@@ -714,13 +760,15 @@ function handleChange(event) {
   const el = event.target;
   if (el.matches('[data-bank-field]')) {
     updateBancoField(el);
-    render();
+    if (el.type === 'checkbox') render();
     return;
   }
 
   if (el.matches('[data-conv-field]')) {
     updateConvenioField(el);
-    render();
+    // Campos de texto já são salvos durante a digitação. Recriar o formulário
+    // ao perder o foco descartaria o clique no próximo botão.
+    if (el.type === 'checkbox' || el.tagName === 'SELECT') render();
     return;
   }
 
@@ -746,6 +794,10 @@ function updateBancoField(el) {
   } else {
     banco[field] = el.value;
   }
+  if (field === 'nome') {
+    const titulo = el.closest('.banco-outros-card')?.querySelector('.card-head .od-card-copy strong');
+    if (titulo) titulo.textContent = banco.nome || 'Novo Banco';
+  }
 
   salvarStorage(KEY, bancos);
 }
@@ -754,10 +806,16 @@ function updateConvenioField(el) {
   const meta = parseConvPath(el.dataset.convField);
   if (!meta) return;
   const { convenio, field } = meta;
+  if (convenio.tipo === TIPO_PADRAO_BANCO && ['tipo', 'nome'].includes(field)) return;
+  if (field === 'tipo' && !['prefeitura', 'governo', 'siape'].includes(el.value)) return;
   if (el.type === 'checkbox') {
     convenio[field] = el.checked;
   } else {
     convenio[field] = el.value;
+  }
+  if (field === 'nome') {
+    const titulo = el.closest('.convenio-card')?.querySelector('.convenio-head .od-card-copy strong');
+    if (titulo) titulo.textContent = convenio.nome || 'Convênio sem nome';
   }
   salvarStorage(KEY, bancos);
 }
@@ -780,13 +838,13 @@ function updateConvenioArray(el) {
 function updatePrazo(el) {
   const attr = el.dataset.convPrazo;
   if (!attr) return;
-  const [idxStr, convId, prazoIdxStr, field] = attr.split(':');
+  const [idxStr, convId, operacao, prazoIdxStr, field] = attr.split(':');
   const meta = resolveConvenio(idxStr, convId);
-  if (!meta?.convenio) return;
+  if (!meta?.convenio || !FAIXAS_CONVENIO.some(op => op.prazos === operacao) ||
+      !['idade', 'parcelas', 'obs'].includes(field)) return;
   const prazoIdx = Number(prazoIdxStr);
-  if (Number.isNaN(prazoIdx)) return;
-  meta.convenio.prazosCartao = meta.convenio.prazosCartao || [];
-  const target = meta.convenio.prazosCartao[prazoIdx];
+  if (!Number.isSafeInteger(prazoIdx) || prazoIdx < 0) return;
+  const target = meta.convenio[operacao]?.[prazoIdx];
   if (!target) return;
 
   target[field] = el.value;
@@ -829,72 +887,101 @@ function resolveConvenio(idxStr, convId) {
   return { banco, convenio, idx };
 }
 
-async function uploadBaseOutros(file) {
+function informar(mensagem) {
+  if (statusEl?.isConnected) statusEl.textContent = mensagem;
+}
+
+function bloquearEnvio(bloquear) {
+  [uploadBaseBtn, uploadJsonBtn, reloadBtn].forEach(btn => { if (btn?.isConnected) btn.disabled = bloquear; });
+}
+
+function ultimaLeitura() {
   try {
-    if (!file) {
-      alert('Selecione um arquivo JSON para enviar.');
-      return;
+    const dados = JSON.parse(localStorage.getItem(ULTIMA_LEITURA) || '[]');
+    return Array.isArray(dados) ? dados.map(normalize) : [];
+  } catch { return []; }
+}
+
+function guardarBackup() {
+  // Backup deve existir antes de qualquer substituição dos dados deste navegador.
+  localStorage.setItem(BACKUP, JSON.stringify({ data: new Date().toISOString(), bancos }));
+}
+
+async function uploadBaseOutros(file) {
+  if (publicando) return;
+  const listaAlvo = listEl;
+  const estadoInicial = JSON.stringify(bancos);
+  try {
+    const json = file ? JSON.parse(await file.text()) : JSON.parse(estadoInicial);
+    if (publicando) return;
+    const preparados = prepararBaseOutros(json);
+    if (!confirm('Enviar ' + preparados.length + ' banco(s) para base_outros_convenios? Os bancos enviados serão atualizados; bancos ausentes não serão excluídos.')) return;
+    publicando = true;
+    consultaAtual++; // Uma leitura antiga não pode sobrescrever este envio.
+    bloquearEnvio(true);
+    guardarBackup();
+    informar('Enviando para base_outros_convenios…');
+    const confirmados = await enviarBaseOutros(preparados);
+    const publicada = mesclarBaseOutros(ultimaLeitura(), confirmados, [], true).bancos;
+    localStorage.setItem(ULTIMA_LEITURA, JSON.stringify(publicada));
+    if (listaAlvo !== listEl || !listaAlvo?.isConnected) return;
+    const editouDuranteEnvio = JSON.stringify(bancos) !== estadoInicial;
+    if (!editouDuranteEnvio) {
+      bancos = mesclarBaseOutros(bancos, confirmados, [], true).bancos;
+      salvarStorage(KEY, bancos);
+      syncStates();
+      render();
     }
-
-    const text = await file.text();
-    const json = JSON.parse(text);
-    const registros = Object.entries(json || {}).map(([nomeBanco, dadosBanco]) => ({
-      banco_id: gerarBancoId(nomeBanco),
-      nome: nomeBanco,
-      suspenso: dadosBanco?.status_suspenso ?? false,
-      dados: dadosBanco
-    }));
-
-    if (!registros.length) {
-      alert('Arquivo vazio ou inválido.');
-      return;
-    }
-
-    await supabase.from('base_outros_convenios').delete().neq('banco_id', '');
-    const { error } = await supabase.from('base_outros_convenios').upsert(registros, { onConflict: 'banco_id' });
-    if (error) throw error;
-
-    alert('✅ Base Outros Convênios enviada com sucesso!');
-    await carregarBaseOutrosRemota();
+    const mensagem = confirmados.length + ' banco(s) com envio confirmado em base_outros_convenios.' +
+      (editouDuranteEnvio ? ' As alterações feitas durante o envio continuam locais; envie novamente para publicá-las.' : '');
+    informar(mensagem);
+    alert(mensagem);
   } catch (err) {
-    console.error('Erro ao enviar base Outros Convenios:', err);
-    alert('❌ Erro ao enviar base Outros Convenios.');
+    console.error('Erro no envio da Base Outros Convênios:', err);
+    if (listaAlvo !== listEl || !listaAlvo?.isConnected) return;
+    const mensagem = 'Não foi possível confirmar o envio. ' + mensagemErroOutros(err) +
+      ' Os dados locais foram preservados. Esta operação não exclui bancos remotos.';
+    informar(mensagem);
+    alert(mensagem);
+  } finally {
+    publicando = false;
+    bloquearEnvio(false);
   }
 }
 
 async function carregarBaseOutrosRemota() {
+  if (publicando) return;
+  const consulta = ++consultaAtual;
+  const listaAlvo = listEl;
+  const estadoInicial = JSON.stringify(bancos);
+  bloquearEnvio(true);
+  informar('Consultando base_outros_convenios no Supabase…');
   try {
-    const { data, error } = await supabase.from('base_outros_convenios').select('*').order('nome', { ascending: true });
-    if (error) {
-      console.error('Erro ao carregar base Outros Convenios do Supabase:', error);
+    const remotos = await carregarBaseOutros();
+    if (consulta !== consultaAtual || listaAlvo !== listEl || !listaAlvo?.isConnected) return;
+    if (JSON.stringify(bancos) !== estadoInicial) {
+      informar('Leitura concluída. A edição iniciada durante a consulta foi preservada. Use Atualizar do Supabase quando terminar.');
       return;
     }
-
-    const lista = (data || []).map((row) => {
-      const dados = row?.dados && typeof row.dados === 'object' ? row.dados : {};
-      return normalize({
-        ...dados,
-        nome: dados.nome ?? row?.nome ?? '',
-        status_suspenso: dados.status_suspenso ?? row?.suspenso ?? false
-      });
-    });
-
-    bancos = lista;
+    if (!remotos.length) {
+      informar('O Supabase não retornou bancos. Os dados deste navegador foram mantidos; envie a edição para publicá-los.');
+      return;
+    }
+    const resultado = mesclarBaseOutros(bancos, remotos, ultimaLeitura());
+    guardarBackup();
+    salvarStorage(KEY, resultado.bancos);
+    localStorage.setItem(ULTIMA_LEITURA, JSON.stringify(remotos));
+    bancos = resultado.bancos;
     syncStates();
-    salvarStorage(KEY, bancos);
     render();
+    informar(remotos.length + ' banco(s) lidos de base_outros_convenios.' +
+      (resultado.preservados ? ' Rascunhos locais diferentes foram preservados; enviar a edição publica esses rascunhos.' : ' Edições só serão publicadas ao enviar.'));
   } catch (err) {
-    console.error('Erro inesperado ao carregar base Outros Convenios do Supabase:', err);
+    console.error('Erro na leitura da Base Outros Convênios:', err);
+    if (consulta === consultaAtual && listaAlvo === listEl && listaAlvo?.isConnected) {
+      informar('Não foi possível carregar o Supabase. ' + mensagemErroOutros(err) + ' Os dados deste navegador foram mantidos.');
+    }
+  } finally {
+    if (consulta === consultaAtual && listaAlvo === listEl && !publicando) bloquearEnvio(false);
   }
-}
-
-function gerarBancoId(nome) {
-  if (!nome) return '';
-  const primeira = nome.toString().trim().split(/\s+/)[0];
-  const normalizado = primeira
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .toLowerCase();
-  return normalizado.length <= 3 ? normalizado : normalizado.slice(0, 3);
 }

@@ -6,7 +6,9 @@ export function esc(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function parseRange(text) {
@@ -40,7 +42,20 @@ export function salvarStorage(key, data) {
 }
 
 const PRAZO_PADRAO = { idade: '', parcelas: '', obs: '' };
-const CONVENIO_TYPES = ['prefeitura', 'governo', 'siape'];
+export const TIPO_PADRAO_BANCO = 'padrao_banco';
+const CONVENIO_TYPES = [TIPO_PADRAO_BANCO, 'prefeitura', 'governo', 'siape'];
+export const OPERACOES_CONVENIO = [
+  { campo: 'fazMargem', prazos: 'prazos', titulo: 'Margem' },
+  { campo: 'fazCartao', prazos: 'prazosCartao', titulo: 'Cartão' },
+  { campo: 'fazRefin', prazos: 'prazosRefin', titulo: 'Refinanciamento' },
+  { campo: 'fazSaqueComplementar', prazos: 'prazosSaqueComplementar', titulo: 'Saque complementar' },
+  { campo: 'fazPortabilidade', prazos: 'prazosPortabilidade', titulo: 'Portabilidade' }
+];
+export const PERFIS_CONVENIO = [
+  { campo: 'aceitaCeletista', prazos: 'prazosCeletista', titulo: 'Celetista' },
+  { campo: 'aceitaTemporario', prazos: 'prazosTemporario', titulo: 'Temporário' }
+];
+export const FAIXAS_CONVENIO = [...OPERACOES_CONVENIO, ...PERFIS_CONVENIO];
 
 const OPERACIONAL_DEFAULTS = {
   statusSuspenso: false,
@@ -49,6 +64,9 @@ const OPERACIONAL_DEFAULTS = {
   fazRefin: false,
   fazSaqueComplementar: false,
   fazPortabilidade: false,
+  aceitaCeletista: false,
+  aceitaTemporario: false,
+  perfisOutros: '',
   aceitaClienteNaoAssina: false,
   aceitaLoas: false,
   aceitaInvalidez: false,
@@ -85,7 +103,7 @@ const OPERACIONAL_DEFAULTS = {
   minimoLiberado: '',
   tipoMinimo: 'valor liberado',
   parcela: '',
-  prazosCartao: [PRAZO_PADRAO],
+  ...Object.fromEntries(FAIXAS_CONVENIO.map(op => [op.prazos, [PRAZO_PADRAO]])),
   observacoes: ''
 };
 
@@ -102,11 +120,14 @@ function nextConvenioId() {
 
 function normalizePrazoList(list) {
   if (!Array.isArray(list) || !list.length) return [{ ...PRAZO_PADRAO }];
-  return list.map((item) => ({
-    idade: item?.idade || '',
-    parcelas: item?.parcelas || '',
-    obs: item?.obs || ''
-  }));
+  return list.map((item) => {
+    const prazo = { ...(item && typeof item === 'object' ? item : {}),
+      idade: item?.idade ?? '', parcelas: item?.parcelas ?? '', obs: item?.obs ?? '' };
+    const range = parseRange(prazo.idade);
+    if (range) { prazo.min = range.min; prazo.max = range.max; }
+    else { delete prazo.min; delete prazo.max; }
+    return prazo;
+  });
 }
 
 function normalizeTextList(value) {
@@ -157,11 +178,14 @@ function normalizeConvenio(raw = {}) {
     ...raw,
     id,
     tipo: CONVENIO_TYPES.includes(tipo) ? tipo : 'prefeitura',
-    nome: raw.nome ?? raw.nomeConvenio ?? '',
+    nome: tipo === TIPO_PADRAO_BANCO ? 'Padrão banco' : raw.nome ?? raw.nomeConvenio ?? '',
     statusSuspenso: !!statusFlag,
     rogo: normalizeTextList(raw.rogo),
     documentos: normalizeTextList(raw.documentos),
-    prazosCartao: normalizePrazoList(raw.prazosCartao),
+    ...Object.fromEntries(FAIXAS_CONVENIO.map(op => [op.prazos, normalizePrazoList(raw[op.prazos])])),
+    aceitaCeletista: !!raw.aceitaCeletista,
+    aceitaTemporario: !!raw.aceitaTemporario,
+    perfisOutros: String(raw.perfisOutros ?? ''),
     minimoLiberado: raw.minimoLiberado ?? '',
     parcela: raw.parcela ?? '',
     tipoMinimo: raw.tipoMinimo === 'parcela' ? 'parcela' : 'valor liberado',
@@ -188,6 +212,7 @@ export function normalize(banco) {
   const safe = banco && typeof banco === 'object' ? banco : {};
 
   const result = {
+    ...(typeof safe.banco_id === 'string' && safe.banco_id.trim() ? { banco_id: safe.banco_id.trim() } : {}),
     nome: safe.nome ?? '',
     suspenso: !!safe.suspenso,
     bancosAceitos: normalizeTextList(safe.bancosAceitos),
@@ -199,7 +224,7 @@ export function normalize(banco) {
   };
 
   let convenios = Array.isArray(safe.convenios) ? safe.convenios : [];
-  if (!convenios.length) {
+  if (!Array.isArray(safe.convenios)) {
     convenios = [legacyBancoParaConvenio(safe)];
   }
 
@@ -207,9 +232,13 @@ export function normalize(banco) {
   return result;
 }
 
-export function novoConvenioPadrao(tipo = 'prefeitura') {
+export function novoConvenioPadrao(tipo = 'prefeitura', modelo = null) {
+  // Copia também listas e objetos internos: não há vínculo após a criação.
+  const dados = modelo && tipo !== TIPO_PADRAO_BANCO
+    ? JSON.parse(JSON.stringify(modelo))
+    : cloneOperacionalDefaults();
   return normalizeConvenio({
-    ...OPERACIONAL_DEFAULTS,
+    ...dados,
     id: nextConvenioId(),
     tipo,
     nome: ''
@@ -226,6 +255,6 @@ export function novoBancoPadrao() {
     links: [''],
     emails: [''],
     contatos: [{ numero: '', obs: '' }],
-    convenios: [novoConvenioPadrao()]
+    convenios: [novoConvenioPadrao(TIPO_PADRAO_BANCO)]
   };
 }

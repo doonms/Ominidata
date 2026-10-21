@@ -1,58 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Base de Dados INSS — Ominidata</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Base INSS — Ominidata</title>
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png">
   <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/layout-operacional.css">
 </head>
-<body>
-
-  <!-- Botão e menu lateral -->
-  <button class="menu-btn" id="menuBtn">☰</button>
-  <nav class="sidebar" id="sidebar"></nav>
-
-  <!-- Conteúdo principal -->
+<body class="od-page">
+  <button class="menu-btn" id="menuBtn" aria-label="Abrir menu de navegação">&#9776;</button>
+  <nav class="sidebar" id="sidebar" aria-label="Menu principal"></nav>
   <div class="wrap">
-    <div class="header">
-      <div class="logo-wrap">
-        <div class="rot-bg"></div>
-        <img src="../imagens/logos/logo.png" class="logo-img" alt="Logo">
+    <header class="header od-hero ">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Gestão operacional</span><h1>Base INSS</h1><p>Gerencie as regras, os perfis e os prazos de cada banco para a operação INSS.</p></div>
       </div>
-      <h1>Base de Dados INSS</h1>
-    </div>
-
-    <div style="margin-bottom:12px;">
-      <button id="uploadBaseInssBtn" class="btn">📤 Enviar Base INSS ao Supabase</button>
-      <input type="file" id="uploadBaseInssFile" accept=".json" style="display:none"/>
-    </div>
-
-    <div class="panel">
-      <div class="top">
-        <button id="add">+ Novo Banco</button>
-        <input type="file" id="file" accept=".json">
-        <button id="save">💾 Exportar</button>
+      <span class="od-badge">Ambiente de edição</span>
+    </header>
+    <section class="od-sync" aria-label="Publicação da base">
+      <div><strong>Da edição à operação</strong><p>Importar e editar salva neste navegador. Envie a base para disponibilizar os dados no Supabase.</p></div>
+      <button type="button" id="uploadBaseInssBtn">Enviar base ao Supabase</button>
+      <input type="file" id="uploadBaseInssFile" accept=".json" hidden>
+    </section>
+    <main class="panel">
+      <div class="top od-toolbar">
+        <div><span class="od-eyebrow">Cadastro de regras</span><h2>Bancos e condições</h2><p>Abra um banco para consultar ou editar os detalhes.</p></div>
+        <div class="od-actions">
+          <label class="od-file-control">Importar JSON<input type="file" id="file" accept=".json" aria-label="Importar base JSON neste navegador"></label>
+          <button type="button" id="save" class="od-secondary">Exportar JSON</button>
+          <button type="button" id="add">+ Novo banco</button>
+        </div>
       </div>
       <div id="list"></div>
-    </div>
+    </main>
   </div>
-
-  <!-- Imports de módulos -->
   <script type="module">
-  import { criarMenuLateral } from '../js/components/menuLateral.js';
-  import { initBase } from '../js/main.js';
-
-  criarMenuLateral();
-  initBase();
-</script>
-
+    import { criarMenuLateral } from '../js/components/menuLateral.js';
+    import { initBase } from '../js/main.js';
+    criarMenuLateral();
+    initBase();
   </script>
-
   <script>
     const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
     const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
+    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) window.location.href = loginPath;
   </script>
 </body>
 </html>

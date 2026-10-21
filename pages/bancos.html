@@ -10,22 +10,23 @@
   <link rel="stylesheet" href="../css/filtros.css" />
   <link rel="stylesheet" href="../css/bancos.css" />
   
+  <link rel="stylesheet" href="../css/layout-operacional.css">
 </head>
-<body>
+<body class="od-page">
   <button class="menu-btn" id="menuBtn">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
   <div class="wrap">
-    <div class="header header-center">
-      <div class="logo-wrap">
-        <div class="rot-bg" aria-hidden="true"></div>
-        <img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img" />
+    <header class="header od-hero ">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Consulta operacional</span><h1>Bancos Aceitos</h1><p>Consulte os bancos aceitos e as restrições informadas por cada parceiro.</p></div>
       </div>
-      <h1>Bancos Aceitos</h1>
-    </div>
+      <span class="od-badge">Central de consulta</span>
+    </header>
 
     <div class="bancos-container">
-      <p class="muted">Visualize rapidamente a lista de bancos aceitos e nao aceitos por cada parceiro.</p>
+      <p class="muted">Visualize rapidamente a lista de bancos aceitos e não aceitos por cada parceiro.</p>
       <div class="summary-panel" id="summaryPanel">
         <div class="summary-card">
           <strong>0</strong>
@@ -37,12 +38,12 @@
         </div>
         <div class="summary-card">
           <strong>0</strong>
-          <span>bancos com restricao</span>
+          <span>bancos com restrição</span>
         </div>
       </div>
       <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Buscar por banco, aceitos ou nao aceitos..." />
-        <button id="showAllBtn">&#8635;</button>
+        <input type="search" id="searchInput" aria-label="Buscar banco" placeholder="Buscar por banco, aceitos ou nao aceitos..." />
+        <button id="showAllBtn" aria-label="Limpar busca e mostrar todos">Mostrar todos</button>
       </div>
       <div class="filter-row">
         <label class="filter-toggle">
@@ -51,7 +52,7 @@
         </label>
         <label class="filter-toggle">
           <input type="checkbox" id="filterRestritos" />
-          Somente parceiros com restricoes
+          Somente parceiros com restrições
         </label>
       </div>
 

@@ -213,8 +213,12 @@ async function runPageInitializer(href) {
   }
   clean = clean.replace(/^\/+/, '').split(/[?#]/)[0] || 'index.html';
   document.body.classList.toggle('simulador-page', clean === 'pages/simulador.html');
-  document.body.classList.toggle('base-fatores-page', clean === 'pages/base-fatores.html');
+  document.body.classList.toggle('base-fatores-page', ['pages/base-fatores.html', 'pages/fatores-do-dia.html'].includes(clean));
   document.body.classList.toggle('pesquisa-page', clean === 'pages/pesquisa.html');
+  document.body.classList.toggle('od-page', [
+    'index.html', 'pages/base-inss.html', 'pages/base-outros-convenios.html',
+    'pages/base-credito-pessoal.html', 'pages/contatos.html', 'pages/bancos.html'
+  ].includes(clean));
   const init = pageInitializers[clean];
   if (init) {
     try { await init(); }
