@@ -57,8 +57,12 @@ def main():
                 template.locator('[data-conv-field$=":aceitaCeletista"]').check()
                 template.locator('[data-conv-field$=":perfisOutros"]').fill('Efetivos "A"')
                 template.locator('[data-conv-array$=":documentos"][data-value=rg]').check()
+                template.locator('[data-conv-field$=":exigeDocumentos"]').check()
+                template.locator('[data-conv-field$=":documentosNecessarios"]').fill('RG e comprovante de residência')
                 template.locator('[data-conv-field$=":precisaVideoObs"]').fill('Procedimento padrão')
                 template.locator('[data-conv-field$=":minimoLiberado"]').fill('1000')
+                template.locator('[data-conv-field$=":margemMaximaConvenio"]').fill('35%')
+                template.locator('[data-conv-field$=":margemUtilizadaBanco"]').fill('30%')
                 template.locator('[data-conv-field$=":observacoes"]').fill('Observação padrão')
                 model = saved()[0]['convenios'][-1]
                 copies = []
@@ -83,6 +87,8 @@ def main():
                 first.locator('[data-conv-operacao=prazos] [data-conv-prazo$=":obs"]').fill('Somente prefeitura')
                 first.locator('[data-conv-perfil=prazosCeletista] [data-conv-prazo$=":obs"]').fill('Celetista só da prefeitura')
                 first.locator('[data-conv-array$=":documentos"][data-value=rg]').uncheck()
+                first.locator('[data-conv-field$=":documentosNecessarios"]').fill('Documento exclusivo da prefeitura')
+                first.locator('[data-conv-field$=":margemUtilizadaBanco"]').fill('25,5%')
                 state = saved()[0]['convenios']
                 assert next(c for c in state if c['id'] == template_id) == model
                 for copy_id in copies[1:]:
@@ -90,6 +96,8 @@ def main():
                     assert copy['prazos'] == model['prazos'] and copy['documentos'] == ['rg']
                     assert copy['prazosCeletista'] == model['prazosCeletista']
                     assert copy['prazosTemporario'] == model['prazosTemporario']
+                    assert copy['exigeDocumentos'] and copy['documentosNecessarios'] == model['documentosNecessarios']
+                    assert copy['margemMaximaConvenio'] == '35%' and copy['margemUtilizadaBanco'] == '30%'
                 previous = {c['id']:c for c in state if c['tipo'] != 'padrao_banco'}
                 template.locator('[data-conv-operacao=prazosCartao] [data-conv-prazo$=":obs"]').fill('Modelo atualizado')
                 assert {c['id']:c for c in saved()[0]['convenios'] if c['tipo'] != 'padrao_banco'} == previous

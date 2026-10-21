@@ -96,6 +96,48 @@ def main():
                 def saved():
                     return page.evaluate(f'JSON.parse(localStorage.getItem("{KEY}"))')
 
+                financeiro = pref.locator('[data-conv-section=financeiro]')
+                margem_maxima = financeiro.get_by_label('Margem máxima do convênio')
+                margem_banco = financeiro.get_by_label('Margem que o banco utiliza')
+                expect(margem_maxima).to_have_value('')
+                expect(margem_banco).to_have_value('')
+                margem_maxima.fill('0')
+                margem_banco.fill('0')
+                pref.locator('[data-toggle-convenio]').click()
+                pref.locator('[data-toggle-convenio]').click()
+                expect(margem_maxima).to_have_value('0')
+                expect(margem_banco).to_have_value('0')
+                margem_banco.fill('')
+                assert saved()[0]['convenios'][0]['margemUtilizadaBanco'] == ''
+                margem_maxima.fill('35,5%')
+                margem_banco.fill('30%')
+                assert saved()[0]['convenios'][0]['margemMaximaConvenio'] == '35,5%'
+                assert saved()[0]['convenios'][0]['margemUtilizadaBanco'] == '30%'
+                assert saved()[0]['convenios'][1]['margemMaximaConvenio'] == ''
+                assert saved()[1]['convenios'][0]['margemUtilizadaBanco'] == ''
+                print('PASS: margens do convênio e do banco independentes, opcionais, preservam zero/vírgula/% e não afetam outros convênios')
+
+                docs = pref.locator('[data-conv-section=documentos]')
+                documentos_texto = 'RG "frente e verso" & CPF\nComprovante de residência <atualizado>'
+                interruptor = docs.get_by_role('switch', name='Documentos necessários')
+                campo_docs = docs.get_by_label('Quais documentos são necessários?')
+                expect(interruptor).not_to_be_checked()
+                expect(campo_docs).to_be_hidden()
+                interruptor.check()
+                expect(interruptor).to_have_attribute('aria-expanded','true')
+                expect(campo_docs).to_be_visible()
+                campo_docs.fill(documentos_texto)
+                interruptor.uncheck()
+                expect(campo_docs).to_be_hidden()
+                assert saved()[0]['convenios'][0]['documentosNecessarios'] == documentos_texto
+                assert not saved()[0]['convenios'][0]['exigeDocumentos']
+                interruptor.press('Space')
+                expect(campo_docs).to_have_value(documentos_texto)
+                assert saved()[0]['convenios'][0]['exigeDocumentos']
+                assert not saved()[0]['convenios'][1]['exigeDocumentos']
+                assert saved()[1]['convenios'][0]['documentosNecessarios'] == ''
+                print('PASS: documentos necessários no mesmo bloco; interruptor/teclado, texto multilinha e caracteres especiais, ocultar sem apagar e dados isolados por convênio')
+
                 expect(pref.locator('[data-conv-perfil]')).to_have_count(2)
                 for indice,(flag,lista) in enumerate(PERFIS):
                     bloco = pref.locator(f'[data-conv-perfil="{lista}"]')
@@ -162,6 +204,8 @@ def main():
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), largura
                     if largura in [390,1440]:
                         perfil.screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-perfis-{largura}.png'))
+                        docs.screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-documentos-{largura}.png'))
+                        financeiro.screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-financeiro-{largura}.png'))
                         pref.locator('[data-conv-operacao=prazosCartao]').screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-faixas-{largura}.png'))
                         pref.locator('[data-conv-perfil=prazosCeletista]').screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-celetista-{largura}.png'))
                         pref.locator('[data-conv-perfil=prazosTemporario]').screenshot(path=str(Path(gettempdir()) / f'ominidata-outros-temporario-{largura}.png'))
@@ -175,6 +219,10 @@ def main():
                 page.locator('[data-toggle-banco="0"]').click()
                 page.locator('[data-toggle-convenio="0:pref-1"]').click()
                 expect(perfil.locator('[data-conv-field$=":perfisOutros"]')).to_have_value(outros)
+                expect(interruptor).to_be_checked()
+                expect(campo_docs).to_have_value(documentos_texto)
+                expect(margem_maxima).to_have_value('35,5%')
+                expect(margem_banco).to_have_value('30%')
                 expect(pref.locator('[data-conv-operacao]')).to_have_count(5)
                 expect(pref.locator('[data-conv-perfil]')).to_have_count(2)
                 assert saved() == before

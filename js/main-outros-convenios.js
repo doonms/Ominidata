@@ -323,7 +323,7 @@ function renderConvenioCard(conv, bancoIdx) {
         </div>
         ${renderFaixasCondicionais(conv, bancoIdx, PERFIS_CONVENIO, true)}
 
-        <div class="subpanel">
+        <div class="subpanel" data-conv-section="documentos">
           <h3>Documentos aceitos</h3>
           <div class="checkbox-grid">
             ${documentoCheckbox(baseKey, conv, 'rg', 'RG')}
@@ -331,6 +331,16 @@ function renderConvenioCard(conv, bancoIdx) {
             ${documentoCheckbox(baseKey, conv, 'ctps', 'CTPS')}
           </div>
           <input data-conv-field="${baseKey}:outrosDocs" value="${esc(conv.outrosDocs || '')}" placeholder="Outros documentos"/>
+          <div class="checkbox-grid">
+            <label>
+              <input type="checkbox" role="switch" data-conv-field="${baseKey}:exigeDocumentos" ${conv.exigeDocumentos ? 'checked' : ''} aria-expanded="${!!conv.exigeDocumentos}" aria-controls="docs-necessarios-${esc(baseKey)}"/>
+              Documentos necessários
+            </label>
+          </div>
+          <div id="docs-necessarios-${esc(baseKey)}" ${conv.exigeDocumentos ? '' : 'hidden'}>
+            <label for="docs-necessarios-texto-${esc(baseKey)}">Quais documentos são necessários?</label>
+            <textarea id="docs-necessarios-texto-${esc(baseKey)}" data-conv-field="${baseKey}:documentosNecessarios" rows="3" placeholder="Ex.: RG, comprovante de residência e último contracheque.">${esc(conv.documentosNecessarios || '')}</textarea>
+          </div>
         </div>
 
         <div class="subpanel">
@@ -378,8 +388,18 @@ function renderConvenioCard(conv, bancoIdx) {
           </div>
         </div>
 
-        <div class="subpanel">
+        <div class="subpanel" data-conv-section="financeiro">
           <h3>Financeiro</h3>
+          <div class="row">
+            <div class="col">
+              <label for="margem-maxima-${esc(baseKey)}">Margem máxima do convênio</label>
+              <input id="margem-maxima-${esc(baseKey)}" data-conv-field="${baseKey}:margemMaximaConvenio" value="${esc(conv.margemMaximaConvenio ?? '')}" placeholder="Ex.: 35%"/>
+            </div>
+            <div class="col">
+              <label for="margem-banco-${esc(baseKey)}">Margem que o banco utiliza</label>
+              <input id="margem-banco-${esc(baseKey)}" data-conv-field="${baseKey}:margemUtilizadaBanco" value="${esc(conv.margemUtilizadaBanco ?? '')}" placeholder="Ex.: 30%"/>
+            </div>
+          </div>
           <div class="row">
             <div class="col">
               <label>Mínimo liberado</label>

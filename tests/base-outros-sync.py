@@ -104,6 +104,10 @@ def main():
                 expect(status).to_contain_text('2 banco(s) lidos')
                 page.locator('[data-toggle-banco="0"]').click()
                 page.locator('[data-toggle-convenio="0:prefeitura"]').click()
+                page.locator('[data-conv-field="0:prefeitura:exigeDocumentos"]').check()
+                page.locator('[data-conv-field="0:prefeitura:documentosNecessarios"]').fill('RG e último contracheque')
+                page.locator('[data-conv-field="0:prefeitura:margemMaximaConvenio"]').fill('35,5%')
+                page.locator('[data-conv-field="0:prefeitura:margemUtilizadaBanco"]').fill('30%')
                 page.locator('[data-conv-field="0:prefeitura:observacoes"]').fill('Rascunho não publicado')
                 changed=json.loads(json.dumps(initial))
                 changed[0]['dados']['convenios'][1]['observacoes']='Mudança remota concorrente'
@@ -120,6 +124,10 @@ def main():
                 assert writes[0]['options']['onConflict']=='banco_id'
                 assert all('id' not in row and isinstance(row['dados']['convenios'],list) for row in writes[0]['rows'])
                 assert page.evaluate('JSON.parse(localStorage.qa_outros_remote)[0].dados.convenios[1].observacoes')=='Rascunho não publicado'
+                assert page.evaluate('JSON.parse(localStorage.qa_outros_remote)[0].dados.convenios[1].exigeDocumentos')
+                assert page.evaluate('JSON.parse(localStorage.qa_outros_remote)[0].dados.convenios[1].documentosNecessarios')=='RG e último contracheque'
+                assert page.evaluate('JSON.parse(localStorage.qa_outros_remote)[0].dados.convenios[1].margemMaximaConvenio')=='35,5%'
+                assert page.evaluate('JSON.parse(localStorage.qa_outros_remote)[0].dados.convenios[1].margemUtilizadaBanco')=='30%'
                 # Renaming keeps banco_id; blur must not discard the publish click.
                 page.locator('[data-bank-field="0:nome"]').fill('Banco Alfa Renomeado')
                 publish()

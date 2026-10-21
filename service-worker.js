@@ -1,4 +1,4 @@
-const CACHE_NAME = "ominidata-cache-v36";
+const CACHE_NAME = "ominidata-cache-v38";
 const urlsToCache = [
   "./",
   "./index.html",
