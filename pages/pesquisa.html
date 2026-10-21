@@ -13,7 +13,7 @@
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">☰</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap pesquisa-wrap">
+  <div class="wrap pesquisa-wrap" inert>
     <header class="pesquisa-header">
       <div class="logo-block">
         <div class="logo-wrap">
@@ -108,6 +108,7 @@
   </div>
 
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { carregarMenuLateral } from '../js/components/menuLateral.js';
     import { initFiltros } from '../js/filtros/filtros.js';
     import { initPesquisaLayout } from '../js/filtros/pesquisa-layout.js';
@@ -134,6 +135,7 @@
     }
 
     (async () => {
+      if (!await requirePageAccess()) return;
       carregarMenuLateral();
       await ensureBaseInssCache();
       initFiltros({
@@ -155,14 +157,8 @@
         }
       });
       initPesquisaLayout();
+      finishPageAccess();
     })();
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
   </script>
 </body>
 </html>

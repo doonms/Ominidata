@@ -4,6 +4,7 @@ import { normalize, FAIXAS_CONVENIO } from '../components/utilBaseOutros.js';
 const TABELA = 'base_outros_convenios';
 const COLUNAS = 'banco_id,nome,suspenso,dados';
 const PAGINA = 500;
+export const MIGRACAO_SUBSTITUICAO = 'supabase/migrations/20261021_base_outros_substituicao.sql';
 const objeto = valor => valor !== null && typeof valor === 'object' && !Array.isArray(valor);
 const nomeChave = nome => String(nome ?? '').trim().normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
 
@@ -39,7 +40,8 @@ function validarBanco(raw) {
   return normalize({ ...raw, nome: raw.nome.trim(), suspenso: raw.suspenso ?? raw.status_suspenso ?? false });
 }
 
-export function prepararBaseOutros(json) {
+export function prepararBaseOutros(json, { permitirVazia = false } = {}) {
+  if (permitirVazia && Array.isArray(json) && json.length === 0) return [];
   const lista = Array.isArray(json) ? json : objeto(json)
     ? Object.entries(json).map(([nome, dados]) => {
       if (!objeto(dados)) throw new Error('Formato de banco inválido no JSON.');
@@ -69,7 +71,7 @@ function lerLinhas(rows) {
   });
 }
 
-export async function carregarBaseOutros() {
+async function carregarLinhasOutros() {
   const rows = [];
   for (let inicio = 0; ; inicio += PAGINA) {
     const { data, error } = await supabase.from(TABELA).select(COLUNAS)
@@ -79,8 +81,12 @@ export async function carregarBaseOutros() {
     rows.push(...data);
     if (data.length < PAGINA) break;
   }
-  if (!rows.length) return [];
-  return prepararBaseOutros(lerLinhas(rows));
+  return rows;
+}
+
+export async function carregarBaseOutros() {
+  const rows = await carregarLinhasOutros();
+  return rows.length ? prepararBaseOutros(lerLinhas(rows)) : [];
 }
 
 function mesmoBanco(a, b) {
@@ -99,11 +105,24 @@ function conteudo(banco) {
 
 // O remoto atualiza o cache limpo. Rascunhos locais nunca são descartados automaticamente.
 export function mesclarBaseOutros(local, remoto, anterior = [], priorizarRemoto = false) {
-  const resultado = local.slice();
-  let preservados = 0;
+  let preservados = 0, remocoesPendentes = 0;
+  // Retira do cache versões publicadas que já foram excluídas no servidor,
+  // mas mantém bancos novos e rascunhos locais ainda não enviados.
+  const resultado = local.filter(atual => {
+    if (remoto.some(b => mesmoBanco(b, atual))) return true;
+    const ultimo = anterior.find(b => mesmoBanco(b, atual));
+    return !ultimo || conteudo(atual) !== conteudo(ultimo);
+  });
   for (const banco of remoto) {
     const i = resultado.findIndex(item => mesmoBanco(item, banco));
-    if (i < 0) { resultado.push(banco); continue; }
+    if (i < 0) {
+      if (anterior.some(b => mesmoBanco(b, banco)) && !local.some(b => mesmoBanco(b, banco))) {
+        remocoesPendentes++;
+        continue; // Não ressuscita um banco que o usuário acabou de remover.
+      }
+      resultado.push(banco);
+      continue;
+    }
     const atual = resultado[i];
     const ultimo = anterior.find(item => mesmoBanco(item, atual));
     if (priorizarRemoto || conteudo(atual) === conteudo(banco) || (ultimo && conteudo(atual) === conteudo(ultimo))) {
@@ -113,20 +132,20 @@ export function mesclarBaseOutros(local, remoto, anterior = [], priorizarRemoto 
       preservados++;
     }
   }
-  return { bancos: resultado, preservados };
+  return { bancos: resultado, preservados, remocoesPendentes };
 }
 
-export async function enviarBaseOutros(json) {
-  const bancos = prepararBaseOutros(json); // Validação completa antes de qualquer escrita.
+export async function enviarBaseOutros(json, { confirmarVazia = false } = {}) {
+  const bancos = prepararBaseOutros(json, { permitirVazia: confirmarVazia });
   const { data: sessao, error: erroSessao } = await supabase.auth.getUser();
   if (erroSessao || !sessao?.user) throw new Error('Entre novamente para enviar a Base Outros Convênios.');
-  const remotos = await carregarBaseOutros();
+  const linhasAnteriores = await carregarLinhasOutros();
+  // A versão bruta é conferida pela RPC. Uma base antiga malformada ainda pode
+  // ser substituída por um arquivo válido, sem descartar seu backup.
+  const remotos = linhasAnteriores.map(row => ({ banco_id: row.banco_id, nome: row.nome ?? row.dados?.nome }));
   const usados = new Set();
   const registros = bancos.map(banco => {
     const porNome = remotos.find(item => nomeChave(item.nome) === nomeChave(banco.nome));
-    if (porNome && banco.banco_id && porNome.banco_id !== banco.banco_id) {
-      throw new Error('O nome ' + banco.nome + ' já pertence a outro banco no Supabase. Confira antes de enviar.');
-    }
     const banco_id = banco.banco_id || porNome?.banco_id ||
       'banco-' + encodeURIComponent(nomeChave(banco.nome));
     if (usados.has(banco_id) || (!banco.banco_id && !porNome && remotos.some(r => r.banco_id === banco_id))) {
@@ -135,24 +154,35 @@ export async function enviarBaseOutros(json) {
     usados.add(banco_id);
     return { banco_id, nome: banco.nome, suspenso: banco.suspenso, dados: { ...banco, banco_id } };
   });
-  // Uma única gravação em lote. Nunca exclui bancos ausentes nem envia coluna id.
-  const { data, error } = await supabase.from(TABELA)
-    .upsert(registros, { onConflict: 'banco_id' }).select(COLUNAS);
+  // A RPC substitui e exclui em uma transação, com backup e controle concorrente.
+  // Não há fallback para DELETE/INSERT separados se o SQL não estiver instalado.
+  const { data, error } = await supabase.rpc('substituir_base_outros_convenios', {
+    p_registros: registros,
+    p_base_anterior: linhasAnteriores,
+    p_confirmar_vazia: confirmarVazia
+  });
   if (error) throw error;
-  if (!Array.isArray(data) || data.length !== registros.length) {
+  if (!objeto(data) || !Array.isArray(data.registros) || data.registros.length !== registros.length ||
+      !Number.isInteger(data.removidos) || data.removidos < 0 || data.backup_id == null) {
     throw new Error('O servidor não confirmou todos os bancos. Confira a base antes de reenviar; seus dados locais foram preservados.');
   }
-  const confirmados = lerLinhas(data);
+  const confirmados = lerLinhas(data.registros);
   for (const row of registros) {
     const confirmado = confirmados.find(b => b.banco_id === row.banco_id);
     if (!confirmado || conteudo(confirmado) !== conteudo(row.dados)) {
       throw new Error('A resposta do Supabase não confirmou os dados enviados. Confira a base antes de reenviar.');
     }
   }
-  return confirmados;
+  return { bancos: confirmados, removidos: data.removidos, backupId: data.backup_id };
 }
 
 export function mensagemErroOutros(erro) {
+  if (erro?.code === 'PGRST202' || erro?.code === '42883') {
+    return 'A substituição completa precisa da função SQL. Execute ' + MIGRACAO_SUBSTITUICAO + ' no SQL Editor. Nenhuma substituição foi iniciada.';
+  }
+  if (erro?.code === '40001') {
+    return 'A base mudou durante o envio. Atualize do Supabase, revise o cadastro e envie novamente. A substituição foi cancelada.';
+  }
   if (erro?.code === '42P01' || erro?.code === 'PGRST205') {
     return 'A tabela public.base_outros_convenios não foi encontrada. Execute o SQL de criação no projeto Supabase configurado no site.';
   }

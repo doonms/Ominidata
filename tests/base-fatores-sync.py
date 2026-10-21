@@ -12,8 +12,12 @@ QA = runpy.run_path(str(Path(__file__).with_name('simulador-fluxo.py')))
 ROOT, FATORES = QA['ROOT'], QA['FATORES']
 STUB = """
 export const supabase = {
-  auth: { getUser: async () => ({data:{user: window.__qaSemSessao ? null : {email:'dominicplf@gmail.com'}}, error:null}) },
+  auth: { getUser: async () => ({data:{user: window.__qaSemSessao ? null : {id:'00000000-0000-0000-0000-000000000001',email:'dominicplf@gmail.com'}}, error:null}) },
   from(table) {
+    if (table === 'perfis_usuarios') {
+      const q={select(){return q;},eq(){return q;},maybeSingle:async()=>({data:{perfil:'master'},error:null})};
+      return q;
+    }
     const query = {
       columns: '*', first:0, last:999999, mode:'read', filters:[],
       select(columns='*') { this.columns=columns; return this; },

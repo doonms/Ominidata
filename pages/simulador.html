@@ -12,7 +12,7 @@
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap sim-page">
+  <div class="wrap sim-page" inert>
     <header class="header sim-hero">
       <div class="sim-hero-brand">
         <div class="logo-wrap">
@@ -29,6 +29,11 @@
       <div class="sim-hero-status"><span aria-hidden="true"></span> Simulação operacional</div>
     </header>
 
+    <fieldset class="sim-search-modes sim-consulta-origem" aria-label="Base da consulta">
+      <legend>Base da consulta</legend>
+      <label class="sim-search-mode"><input type="radio" name="simBaseConsulta" value="inss" checked/><span><strong>INSS</strong><small>Pesquisa rápida e avançada</small></span></label>
+      <label class="sim-search-mode"><input type="radio" name="simBaseConsulta" value="outros"/><span><strong>Outros Convênios</strong><small>Prefeitura, Governo e SIAPE</small></span></label>
+    </fieldset>
     <details class="panel sim-search-panel" id="sim-pesquisa-bancos" aria-labelledby="sim-search-title" open>
       <summary class="sim-search-heading" aria-controls="sim-search-body">
         <div class="sim-side-title">
@@ -98,6 +103,34 @@
       </form>
       <p id="sim-search-status" class="sim-form-status" role="status" aria-live="polite"></p>
       <div id="sim-bank-results" class="sim-bank-results" aria-label="Bancos compatíveis"></div>
+      </div>
+    </details>
+
+    <details class="panel sim-search-panel sim-outros-panel" id="sim-pesquisa-outros" aria-labelledby="sim-outros-title" hidden open>
+      <summary class="sim-search-heading" aria-controls="sim-outros-body">
+        <div class="sim-side-title"><div><strong id="sim-outros-title">Encontre o banco — Outros Convênios</strong><small>Condições por convênio e contrato. Simulação com fator manual.</small></div></div>
+        <span id="sim-outros-count" class="sim-result-badge">Carregando…</span>
+        <span class="sim-search-toggle"><span class="sim-search-collapse-label">Recolher</span><span class="sim-search-expand-label">Expandir</span><i aria-hidden="true"></i></span>
+      </summary>
+      <div id="sim-outros-body">
+        <form id="sim-outros-form">
+          <div class="sim-search-fields">
+            <div class="sim-field"><label for="sim-outros-tipo">Convênio</label><select id="sim-outros-tipo"><option value="prefeitura">Prefeitura</option><option value="governo">Governo</option><option value="siape">SIAPE</option></select></div>
+            <div class="sim-field"><label for="sim-outros-idade">Idade</label><input type="number" id="sim-outros-idade" min="0" max="120" step="1" placeholder="Ex.: 45"/></div>
+            <div class="sim-field"><label for="sim-outros-contrato">Tipo de contrato</label><select id="sim-outros-contrato"><option value="normal">Normal</option><option value="celetista">Celetista</option><option value="temporario">Temporário</option></select></div>
+            <div class="sim-field"><label for="sim-outros-nome">Buscar banco ou convênio</label><input type="search" id="sim-outros-nome" placeholder="Nome do banco ou convênio"/></div>
+          </div>
+          <fieldset class="sim-search-products"><legend>Produtos desejados</legend>
+            <label><input type="checkbox" name="outrosProduto" value="margem"/><span>Margem</span></label>
+            <label><input type="checkbox" name="outrosProduto" value="cartao"/><span>Cartão</span></label>
+            <label><input type="checkbox" name="outrosProduto" value="refin"/><span>Refin</span></label>
+            <label><input type="checkbox" name="outrosProduto" value="port"/><span>Portabilidade</span></label>
+            <label><input type="checkbox" name="outrosProduto" value="saque"/><span>Saque complementar</span></label>
+          </fieldset>
+          <div class="sim-search-actions"><small>Todos os produtos marcados devem ser atendidos pelo mesmo convênio. Normal usa as condições gerais; Celetista e Temporário exigem o perfil aceito.</small><button type="reset" class="secondary">Limpar filtros</button><button type="submit" class="primary">Pesquisar convênios</button></div>
+        </form>
+        <p id="sim-outros-status" class="sim-form-status" role="status" aria-live="polite"></p>
+        <div id="sim-outros-results" class="sim-bank-results" aria-label="Condições de Outros Convênios"></div>
       </div>
     </details>
 
@@ -356,17 +389,14 @@
   </div>
 
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { carregarMenuLateral } from "../js/components/menuLateral.js";
-    import * as Sim from "../js/simulador/index.js";
+    import * as Sim from "../js/simulador/index.js?v=20261021-origem-2";
 
-    carregarMenuLateral();
-    Sim.initSimulador();
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
+    if (await requirePageAccess()) {
+      carregarMenuLateral();
+      Sim.initSimulador();
+      finishPageAccess();
     }
   </script>
 </body>

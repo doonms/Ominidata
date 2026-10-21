@@ -934,25 +934,29 @@ async function uploadBaseOutros(file) {
   try {
     const json = file ? JSON.parse(await file.text()) : JSON.parse(estadoInicial);
     if (publicando) return;
-    const preparados = prepararBaseOutros(json);
-    if (!confirm('Enviar ' + preparados.length + ' banco(s) para base_outros_convenios? Os bancos enviados serão atualizados; bancos ausentes não serão excluídos.')) return;
+    const preparados = prepararBaseOutros(json, { permitirVazia: true });
+    const confirmarVazia = preparados.length === 0;
+    if (confirmarVazia) {
+      if (prompt('A base enviada está vazia. Isso APAGARÁ TODOS os bancos de base_outros_convenios. Para confirmar, digite APAGAR TODOS:') !== 'APAGAR TODOS') return;
+    } else if (!confirm('SUBSTITUIR TODA a base_outros_convenios pelos ' + preparados.length + ' banco(s) enviados? Bancos ausentes serão EXCLUÍDOS do Supabase. Um JSON parcial também substitui toda a base. Uma cópia anterior será guardada no servidor.')) return;
     publicando = true;
     consultaAtual++; // Uma leitura antiga não pode sobrescrever este envio.
     bloquearEnvio(true);
     guardarBackup();
     informar('Enviando para base_outros_convenios…');
-    const confirmados = await enviarBaseOutros(preparados);
-    const publicada = mesclarBaseOutros(ultimaLeitura(), confirmados, [], true).bancos;
-    localStorage.setItem(ULTIMA_LEITURA, JSON.stringify(publicada));
+    const resultado = await enviarBaseOutros(preparados, { confirmarVazia });
+    const confirmados = resultado.bancos;
+    localStorage.setItem(ULTIMA_LEITURA, JSON.stringify(confirmados));
     if (listaAlvo !== listEl || !listaAlvo?.isConnected) return;
     const editouDuranteEnvio = JSON.stringify(bancos) !== estadoInicial;
     if (!editouDuranteEnvio) {
-      bancos = mesclarBaseOutros(bancos, confirmados, [], true).bancos;
+      bancos = confirmados;
       salvarStorage(KEY, bancos);
       syncStates();
       render();
     }
-    const mensagem = confirmados.length + ' banco(s) com envio confirmado em base_outros_convenios.' +
+    const mensagem = confirmados.length + ' banco(s) com envio confirmado em base_outros_convenios. Substituição completa: ' +
+      resultado.removidos + ' banco(s) excluído(s). Cópia anterior no servidor: backup ' + resultado.backupId + '.' +
       (editouDuranteEnvio ? ' As alterações feitas durante o envio continuam locais; envie novamente para publicá-las.' : '');
     informar(mensagem);
     alert(mensagem);
@@ -960,7 +964,7 @@ async function uploadBaseOutros(file) {
     console.error('Erro no envio da Base Outros Convênios:', err);
     if (listaAlvo !== listEl || !listaAlvo?.isConnected) return;
     const mensagem = 'Não foi possível confirmar o envio. ' + mensagemErroOutros(err) +
-      ' Os dados locais foram preservados. Esta operação não exclui bancos remotos.';
+      ' Os dados locais foram preservados. Se houve perda de conexão, confira o servidor antes de reenviar.';
     informar(mensagem);
     alert(mensagem);
   } finally {
@@ -983,10 +987,6 @@ async function carregarBaseOutrosRemota() {
       informar('Leitura concluída. A edição iniciada durante a consulta foi preservada. Use Atualizar do Supabase quando terminar.');
       return;
     }
-    if (!remotos.length) {
-      informar('O Supabase não retornou bancos. Os dados deste navegador foram mantidos; envie a edição para publicá-los.');
-      return;
-    }
     const resultado = mesclarBaseOutros(bancos, remotos, ultimaLeitura());
     guardarBackup();
     salvarStorage(KEY, resultado.bancos);
@@ -994,8 +994,10 @@ async function carregarBaseOutrosRemota() {
     bancos = resultado.bancos;
     syncStates();
     render();
-    informar(remotos.length + ' banco(s) lidos de base_outros_convenios.' +
-      (resultado.preservados ? ' Rascunhos locais diferentes foram preservados; enviar a edição publica esses rascunhos.' : ' Edições só serão publicadas ao enviar.'));
+    informar((remotos.length ? remotos.length + ' banco(s) lidos de base_outros_convenios.' : 'O Supabase não retornou bancos. Rascunhos locais foram mantidos; versões publicadas já excluídas foram removidas do cache.') +
+      (resultado.preservados ? ' Rascunhos locais diferentes foram preservados; enviar a edição publica esses rascunhos.' : '') +
+      (resultado.remocoesPendentes ? ' Exclusões locais pendentes foram preservadas; envie para confirmá-las no Supabase.' : '') +
+      ' O envio substitui toda a base.');
   } catch (err) {
     console.error('Erro na leitura da Base Outros Convênios:', err);
     if (consulta === consultaAtual && listaAlvo === listEl && listaAlvo?.isConnected) {

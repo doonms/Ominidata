@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Usuários — Ominidata</title>
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/layout-operacional.css">
+  <link rel="stylesheet" href="../css/usuarios.css">
+</head>
+<body class="od-page usuarios-page">
+  <button id="menuBtn" class="menu-btn" aria-label="Abrir menu de navegação">&#9776;</button>
+  <nav id="sidebar" class="sidebar" aria-label="Menu principal"></nav>
+  <div class="wrap" inert>
+    <header class="header od-hero">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Administração · Master</span><h1>Usuários e acessos</h1><p>Cadastre contas e escolha quem pode editar as bases ou apenas consultar as ferramentas.</p></div>
+      </div>
+      <span class="od-badge">Exclusivo do Master</span>
+    </header>
+    <main class="usuarios-grid">
+      <section class="panel usuarios-cadastro" aria-labelledby="usuarios-novo-titulo">
+        <span class="od-eyebrow">Novo acesso</span>
+        <h2 id="usuarios-novo-titulo" class="od-section-title">Criar usuário</h2>
+        <p class="od-description">A conta será criada no Supabase sem desconectar sua sessão Master.</p>
+        <form id="usuarios-criar-form" autocomplete="off">
+          <label for="usuario-login">Nome de usuário</label>
+          <input id="usuario-login" type="text" required minlength="3" maxlength="32" pattern="[A-Za-z0-9]+([._\-][A-Za-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="maria.silva" aria-describedby="usuario-login-ajuda">
+          <p id="usuario-login-ajuda" class="od-description">De 3 a 32 caracteres, sem espaços ou acentos. Use letras, números e ponto, hífen ou _ entre eles. Não precisa de e-mail.</p>
+          <label for="usuario-senha">Senha inicial</label>
+          <input id="usuario-senha" type="password" required minlength="12" maxlength="128" autocomplete="new-password" aria-describedby="usuario-senha-ajuda">
+          <p id="usuario-senha-ajuda" class="od-description">Use pelo menos 12 caracteres. Compartilhe a senha somente com o usuário, em canal privado. Ela não ficará salva nesta tela.</p>
+          <label for="usuario-perfil">Perfil de acesso</label>
+          <select id="usuario-perfil" required>
+            <option value="consulta">Consulta — sem alterar as bases</option>
+            <option value="admin">Administrador — edita as bases</option>
+          </select>
+          <div class="usuarios-permissoes">
+            <p><strong>Consulta:</strong> pesquisa, simulador, bancos e contatos.</p>
+            <p><strong>Administrador:</strong> tudo de consulta e edição/publicação das bases. Não cria usuários.</p>
+          </div>
+          <button id="usuario-criar" type="submit" disabled>Criar usuário</button>
+          <p id="usuarios-form-status" class="usuarios-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <section class="panel usuarios-contas" aria-labelledby="usuarios-lista-titulo">
+        <div class="od-toolbar">
+          <div><span class="od-eyebrow">Contas cadastradas</span><h2 id="usuarios-lista-titulo" class="od-section-title">Gerenciar acessos</h2><p>O Master fica protegido. Os demais perfis podem ser alterados abaixo.</p></div>
+        </div>
+        <form id="usuarios-busca-form" class="usuarios-busca">
+          <label class="usuarios-search-field" for="usuarios-busca">Pesquisar usuário ou e-mail<input id="usuarios-busca" type="search" maxlength="254" placeholder="Buscar uma conta..."></label>
+          <button type="submit" class="od-secondary">Atualizar lista</button>
+        </form>
+        <p id="usuarios-list-status" class="usuarios-status" role="status" aria-live="polite">Consultando usuários…</p>
+        <div id="usuarios-lista" class="usuarios-lista"></div>
+        <div class="usuarios-paginacao">
+          <button type="button" class="od-secondary" id="usuarios-anterior" disabled>Anterior</button>
+          <span id="usuarios-pagina"></span>
+          <button type="button" class="od-secondary" id="usuarios-proxima" disabled>Próxima</button>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
+    import { carregarMenuLateral } from '../js/components/menuLateral.js';
+    if (await requirePageAccess()) {
+      const { initUsuarios } = await import('../js/usuarios/usuarios.js');
+      carregarMenuLateral();
+      await initUsuarios();
+      finishPageAccess();
+    }
+  </script>
+</body>
+</html>

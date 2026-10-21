@@ -1,12 +1,11 @@
 import { supabase } from "./supa/supabaseClient.js";
+import { getCurrentUser, limparIdentidadeLocal } from "./auth/accessControl.js";
+import { emailParaLogin } from "./auth/identificador.js";
 
 const email = document.querySelector("#email");
 const senha = document.querySelector("#senha");
 const loginBtn = document.querySelector("#loginBtn");
 const msg = document.querySelector("#msg");
-
-// Email do administrador
-const ADMIN_EMAIL = "dominicplf@gmail.com";
 
 function setLoading(isLoading) {
   loginBtn.disabled = isLoading;
@@ -15,19 +14,21 @@ function setLoading(isLoading) {
 
 async function autenticar() {
   const emailVal = email.value.trim();
-  const senhaVal = senha.value.trim();
+  const senhaVal = senha.value;
 
   if (!emailVal || !senhaVal) {
-    msg.textContent = "Informe email e senha.";
+    msg.textContent = "Informe usuário ou e-mail e senha.";
     return;
   }
 
   setLoading(true);
+  limparIdentidadeLocal();
   msg.textContent = "Autenticando...";
 
   try {
+    const emailAuth = emailParaLogin(emailVal);
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: emailVal,
+      email: emailAuth,
       password: senhaVal
     });
 
@@ -42,12 +43,8 @@ async function autenticar() {
       return;
     }
 
-    sessionStorage.setItem("ominidata_user", JSON.stringify(data.user));
-    localStorage.setItem("ominidata_user", JSON.stringify(data.user));
-
-    const role = data.user.email === ADMIN_EMAIL ? "admin" : "user";
-    sessionStorage.setItem("ominidata_role", role);
-    localStorage.setItem("ominidata_role", role);
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Sua sessão não foi confirmada. Tente entrar novamente.");
 
     msg.textContent = "Ok. Login realizado! Redirecionando...";
     setTimeout(() => {
@@ -55,7 +52,7 @@ async function autenticar() {
     }, 800);
   } catch (err) {
     console.error("Erro inesperado ao autenticar:", err);
-    msg.textContent = "Erro inesperado ao autenticar. Verifique a conexao.";
+    msg.textContent = err.message || "Erro inesperado ao autenticar. Verifique a conexão.";
   } finally {
     setLoading(false);
   }

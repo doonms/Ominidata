@@ -11,7 +11,7 @@
 <body class="od-page">
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menu de navegação">&#9776;</button>
   <nav class="sidebar" id="sidebar" aria-label="Menu principal"></nav>
-  <div class="wrap">
+  <div class="wrap" inert>
     <header class="header od-hero ">
       <div class="od-brand">
         <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
@@ -140,7 +140,11 @@ calcular();
 </script>
   <script type="module">
     import { carregarMenuLateral } from '../js/components/menuLateral.js';
-    carregarMenuLateral();
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
+    if (await requirePageAccess()) {
+      carregarMenuLateral();
+      finishPageAccess();
+    }
   </script>
 </body>
 </html>

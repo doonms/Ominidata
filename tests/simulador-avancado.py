@@ -76,7 +76,7 @@ def main():
                     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), f'Overflow {width}px'
                     if width in [390, 1366]:
                         nome = 'mobile' if width == 390 else 'desktop'
-                        page.locator('.sim-search-panel').screenshot(path=str(Path(os.environ['TEMP']) / f'ominidata-simulador-avancado-{nome}.png'))
+                        page.locator('#sim-pesquisa-bancos').screenshot(path=str(Path(os.environ['TEMP']) / f'ominidata-simulador-avancado-{nome}.png'))
                 page.set_viewport_size({'width': 1366, 'height': 900})
                 page.locator('label:has(#sim-modo-rapido)').click()
                 expect(page.locator('.sim-bank-advanced-details')).to_have_count(0)

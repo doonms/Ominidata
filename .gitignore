@@ -1,0 +1,7 @@
+# Segredos das funções ficam só no servidor/ambiente local.
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+supabase/functions/.env.*
+__pycache__/

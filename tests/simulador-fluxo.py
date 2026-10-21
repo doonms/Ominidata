@@ -45,8 +45,13 @@ FATORES = {
 }
 STUB = """
 export const supabase = {
-  auth: { getUser: async () => ({ data: { user: { email: 'dominicplf@gmail.com' } } }) },
+  auth: { getUser: async () => ({ data: { user: { id:'00000000-0000-0000-0000-000000000001', email: 'dominicplf@gmail.com' } } }) },
   from(table) {
+    if (table === 'perfis_usuarios') {
+      const q = {select(){return q;},eq(){return q;},
+        maybeSingle:async()=>({data:{perfil:'master'},error:null})};
+      return q;
+    }
     const q = {
       select() { return q; }, order() { return q; }, eq() { return q; }, range() { return q; },
       then(resolve, reject) {
@@ -346,6 +351,7 @@ def main():
 
         # A calculadora original segue usando o mesmo módulo compartilhado.
         page.goto(base + '/pages/base-fatores.html')
+        page.wait_for_function("!document.querySelector('.wrap').inert")
         page.locator('#bf-calcParcela').fill('100')
         page.locator('#bf-calcFator').fill('0,02')
         expect(page.locator('#bf-calcValor')).to_have_value('5.000,00')

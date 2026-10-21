@@ -166,6 +166,10 @@
 .simulador-page .sim-bank-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-items: start; gap: 10px; margin-top: 12px; }
 .simulador-page .sim-bank-card { display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; min-width: 0; height: 240px; padding: 10px; border: 1px solid #294455; border-radius: 10px; background: #091c29; transition: background 0.15s, border-color 0.15s; }
 .simulador-page .sim-bank-card.is-expanded { height: auto; min-height: 240px; }
+.simulador-page .sim-outros-card { height: 320px; }
+.simulador-page .sim-outros-card.is-expanded { height: auto; min-height: 320px; }
+.simulador-page .sim-outros-context { display: block; color: var(--sim-muted); font-size: .72rem; line-height: 1.4; overflow-wrap: anywhere; }
+.simulador-page .sim-outros-card .sim-bank-advanced-body p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .simulador-page .sim-bank-card:hover,
 .simulador-page .sim-bank-card.is-selected { border-color: #299ee8; background: #10364d; }
 .simulador-page .sim-bank-option { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; text-align: center; color: var(--sim-text); }

@@ -11,7 +11,7 @@
 <body class="od-page">
   <button id="menuBtn" class="menu-btn" aria-label="Abrir menu de navegação">&#9776;</button>
   <nav id="sidebar" class="sidebar" aria-label="Menu principal"></nav>
-  <div class="wrap">
+  <div class="wrap" inert>
     <header class="header od-hero ">
       <div class="od-brand">
         <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
@@ -27,13 +27,12 @@
     </main>
   </div>
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { criarMenuLateral } from '../js/components/menuLateral.js';
-    criarMenuLateral();
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) window.location.href = loginPath;
+    if (await requirePageAccess()) {
+      criarMenuLateral();
+      finishPageAccess();
+    }
   </script>
 </body>
 </html>

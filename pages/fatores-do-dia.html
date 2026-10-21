@@ -13,7 +13,7 @@
   <button class="menu-btn" id="menuBtn">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap bf-page">
+  <div class="wrap bf-page" inert>
     <header class="header bf-hero">
       <div class="bf-hero-brand">
         <div class="logo-wrap">
@@ -212,43 +212,39 @@
 
   <!-- SCRIPT -->
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { carregarMenuLateral } from '../js/components/menuLateral.js';
-    import * as BF from '../js/simulador/base-fatores.js';
-
-    carregarMenuLateral();
-    BF.initBaseFatores({
-      els: {
-        slBanco: '#bf-slBanco',
-        logo: '#bf-logoBanco',
-        swMargem: '#bf-swMargem',
-        swCartao: '#bf-swCartao',
-        blocoMargem: '#bf-blocoMargem',
-        listaPrazosMargem: '#bf-listaPrazosMargem',
-        addTabelaMargem: '#bf-addTabelaMargem',
-        blocoCartao: '#bf-blocoCartao',
-        listaPrazosCartao: '#bf-listaPrazosCartao',
-        addTabelaCartao: '#bf-addTabelaCartao',
-        listaSeguros: '#bf-listaSeguros',
-        addSeguro: '#bf-addSeguro',
-        btnNovo: '#bf-novoBanco',
-        btnRemover: '#bf-removerBanco',
-        btnSalvar: '#bf-salvarBanco',
-        btnImportar: '#bf-importarBanco',
-        btnExportar: '#bf-exportarBanco',
-        buscaBanco: '#bf-buscaBanco',
-        calcParcela: '#bf-calcParcela',
-        calcFator: '#bf-calcFator',
-        calcValor: '#bf-calcValor',
-        calcStatus: '#bf-calcStatus',
-        calcLimpar: '#bf-calcLimpar'
-      }
-    });
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
+    if (await requirePageAccess()) {
+      const BF = await import('../js/simulador/base-fatores.js');
+      carregarMenuLateral();
+      BF.initBaseFatores({
+        els: {
+          slBanco: '#bf-slBanco',
+          logo: '#bf-logoBanco',
+          swMargem: '#bf-swMargem',
+          swCartao: '#bf-swCartao',
+          blocoMargem: '#bf-blocoMargem',
+          listaPrazosMargem: '#bf-listaPrazosMargem',
+          addTabelaMargem: '#bf-addTabelaMargem',
+          blocoCartao: '#bf-blocoCartao',
+          listaPrazosCartao: '#bf-listaPrazosCartao',
+          addTabelaCartao: '#bf-addTabelaCartao',
+          listaSeguros: '#bf-listaSeguros',
+          addSeguro: '#bf-addSeguro',
+          btnNovo: '#bf-novoBanco',
+          btnRemover: '#bf-removerBanco',
+          btnSalvar: '#bf-salvarBanco',
+          btnImportar: '#bf-importarBanco',
+          btnExportar: '#bf-exportarBanco',
+          buscaBanco: '#bf-buscaBanco',
+          calcParcela: '#bf-calcParcela',
+          calcFator: '#bf-calcFator',
+          calcValor: '#bf-calcValor',
+          calcStatus: '#bf-calcStatus',
+          calcLimpar: '#bf-calcLimpar'
+        }
+      });
+      finishPageAccess();
     }
   </script>
 </body>

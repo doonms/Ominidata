@@ -6,7 +6,7 @@
 // - MantÃ©m compatibilidade com criarMenuLateral/carregarMenuLateral
 // =====================================================
 
-import { getCurrentUser, isAdmin } from "../auth/accessControl.js";
+import { getCurrentUser, isAdmin, isMaster } from "../auth/accessControl.js";
 
 function getBasePrefix() {
   // Se a pÃ¡gina atual estÃ¡ em /pages/, usamos "../" como base; caso contrÃ¡rio, "./"
@@ -40,6 +40,7 @@ export function criarMenuLateral() {
   const bancosHref = buildLink('pages/bancos.html');
   const pesquisaHref = buildLink('pages/pesquisa.html');
   const contatosHref = buildLink('pages/contatos.html');
+  const usuariosHref = buildLink('pages/usuarios.html');
 
   sidebar.innerHTML = `
     <div class="menu-logo">
@@ -57,7 +58,11 @@ export function criarMenuLateral() {
     <a class="publico" href="${bancosHref}" data-nav="bancos">&#128181; Bancos</a>
     <a class="publico" href="${pesquisaHref}" data-nav="pesquisa">&#128269; Pesquisa</a>
     <a class="publico" href="${contatosHref}" data-nav="contatos">&#128231; Contatos</a>
+    <a class="master-only" href="${usuariosHref}" data-nav="usuarios" style="display:none">&#128101; Usuários</a>
   `;
+
+  // Não exibe ações de edição enquanto o perfil não foi confirmado.
+  sidebar.querySelectorAll('.admin-only').forEach(el => { el.style.display = 'none'; });
 
   // Rebind do botÃ£o hamburguer â˜° â€” usa .onclick para evitar mÃºltiplos handlers
   const menuBtn = document.getElementById('menuBtn');
@@ -95,13 +100,19 @@ export function criarMenuLateral() {
 
   getCurrentUser()
     .then(user => {
+      sidebar.querySelectorAll('.master-only').forEach(el => {
+        if (isMaster(user)) el.style.display = '';
+        else el.remove();
+      });
       if (!isAdmin(user)) {
         sidebar.querySelectorAll('.admin-only').forEach(el => el.remove());
+      } else {
+        sidebar.querySelectorAll('.admin-only').forEach(el => { el.style.display = ''; });
       }
     })
     .catch(err => {
       console.error("Falha ao obter usuÃ¡rio para controle de acesso:", err);
-      sidebar.querySelectorAll('.admin-only').forEach(el => el.remove());
+      sidebar.querySelectorAll('.admin-only, .master-only').forEach(el => el.remove());
     });
 }
 

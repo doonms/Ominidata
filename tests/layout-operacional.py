@@ -141,7 +141,7 @@ def main():
 
                 page.goto(base + '/pages/login.html')
                 page.locator('#loginBtn').click()
-                expect(page.locator('#msg')).to_have_text('Informe email e senha.')
+                expect(page.locator('#msg')).to_have_text('Informe usuário ou e-mail e senha.')
                 page.locator('#email').fill('teste@example.com')
                 page.locator('#senha').fill('senha-apenas-do-teste')
                 page.locator('#senha').press('Enter')

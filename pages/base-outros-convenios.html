@@ -11,7 +11,7 @@
 <body class="od-page">
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menu de navegação">&#9776;</button>
   <nav class="sidebar" id="sidebar" aria-label="Menu principal"></nav>
-  <div class="wrap">
+  <div class="wrap" inert>
     <header class="header od-hero ">
       <div class="od-brand">
         <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
@@ -20,7 +20,7 @@
       <span class="od-badge">Ambiente de edição</span>
     </header>
     <section class="od-sync" aria-label="Publicação da base">
-      <div><strong>Da edição à operação</strong><p>A leitura vem de base_outros_convenios. Editar salva neste navegador; envie para publicar. O envio não exclui bancos ausentes.</p><p id="baseOutrosStatus" role="status" aria-live="polite">Consultando Supabase…</p></div>
+      <div><strong>Substituição completa da base</strong><p>Enviar a edição ou um JSON sobrescreve toda a base_outros_convenios. Bancos ausentes serão excluídos. A versão anterior fica em um backup no servidor.</p><p id="baseOutrosStatus" role="status" aria-live="polite">Consultando Supabase…</p></div>
       <div class="od-actions">
         <button type="button" id="reloadBaseOutrosBtn" class="od-secondary">Atualizar do Supabase</button>
         <button type="button" id="uploadBaseOutrosJsonBtn" class="od-secondary">Enviar JSON</button>
@@ -41,15 +41,14 @@
     </main>
   </div>
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { criarMenuLateral } from '../js/components/menuLateral.js';
-    import { initBase } from '../js/main-outros-convenios.js';
-    criarMenuLateral();
-    initBase();
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) window.location.href = loginPath;
+    if (await requirePageAccess()) {
+      const { initBase } = await import('../js/main-outros-convenios.js');
+      criarMenuLateral();
+      initBase();
+      finishPageAccess();
+    }
   </script>
 </body>
 </html>

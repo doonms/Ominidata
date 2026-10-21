@@ -11,7 +11,7 @@
 <body class="od-page">
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menu de navegação">&#9776;</button>
   <nav class="sidebar" id="sidebar" aria-label="Menu principal"></nav>
-  <div class="wrap">
+  <div class="wrap" inert>
     <header class="header od-hero ">
       <div class="od-brand">
         <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
@@ -30,6 +30,7 @@
   </div>
   <script type="module">
 import { supabase } from "../js/supa/supabaseClient.js";
+import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
 
 function gerarBancoId(nome) {
   const primeira = nome.toString().trim().split(/\s+/)[0];
@@ -65,6 +66,7 @@ async function importar(json) {
   }
 }
 
+if (await requirePageAccess()) {
 document.getElementById("arquivo").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -72,6 +74,8 @@ document.getElementById("arquivo").addEventListener("change", async (e) => {
   const json = JSON.parse(text);
   importar(json);
 });
+finishPageAccess();
+}
 </script>
   <script type="module">
     import { carregarMenuLateral } from '../js/components/menuLateral.js';

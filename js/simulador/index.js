@@ -10,6 +10,7 @@ import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
 import { criarCadastroTabelas } from './cadastro-tabelas-fatores.js';
 import { tabelaAtendePublico } from './publico-tabelas.js';
+import { initPesquisaOutros } from './pesquisa-outros-convenios.js?v=20261021-origem-2';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -63,6 +64,11 @@ export async function initSimulador() {
   let perfilSelecionado = null;
   let fatorDigitado = '';
   let multiplas;
+  let consultaOutrosAtiva = false;
+  let bancoOutros = null;
+  const contextosConsulta = {};
+  const camposContexto = ['slBanco','slOrigemFator','slOperacao','slPrazo','slTabela','slSeguro',
+    'inpFatorManual','inpPrazoManual','inpTabelaManual','inpTaxaManual','inpValorDesejado','inpValorMargem'];
 
   function avisar(texto, erro = false) {
     status.textContent = texto;
@@ -76,9 +82,10 @@ export async function initSimulador() {
     select.disabled = !items.length;
   }
 
-  function registro() { return bancos.find(b => b.valor === banco.value); }
-  function dadosBanco() { return base[registro()?.chaveFator] || {}; }
+  function registro() { return consultaOutrosAtiva ? (banco.value === bancoOutros?.valor ? bancoOutros : null) : bancos.find(b => b.valor === banco.value); }
+  function dadosBanco() { return consultaOutrosAtiva ? {} : base[registro()?.chaveFator] || {}; }
   function listaAtual(reg = registro(), tipo = operacao.value, filtros = perfilSelecionado?.filtros) {
+    if (consultaOutrosAtiva) return []; // Outros Convênios usa apenas fator manual, nunca tabelas INSS.
     const dados = base[reg?.chaveFator];
     if (!dados?.fatores || !['margem', 'cartao'].includes(tipo)) return [];
     const publicoCliente = filtros || {
@@ -120,6 +127,11 @@ export async function initSimulador() {
       if (!suspenso) bancos.push({ nome, chaveFator: nome, valor: nome });
     });
     bancos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    if (consultaOutrosAtiva) {
+      opcoes(banco,bancoOutros ? [{label: bancoOutros.nome + ' · ' + bancoOutros.convenio, value: bancoOutros.valor}] : [],'Escolher banco pela pesquisa');
+      banco.value=bancoOutros?.valor || '';
+      return;
+    }
     opcoes(banco, bancos.map(b => ({ label: b.nome, value: b.valor })), 'Escolher banco');
     banco.value = bancos.find(b => b.valor === anterior)?.valor
       || bancos.find(b => nomeAnterior && chaveBanco(b.nome) === chaveBanco(nomeAnterior))?.valor || '';
@@ -171,7 +183,7 @@ export async function initSimulador() {
 
   function atualizarIdentidade() {
     const nome = registro()?.nome;
-    el('resBancoNome').textContent = nome || 'Simulação manual';
+    el('resBancoNome').textContent = nome ? nome + (consultaOutrosAtiva && registro()?.convenio ? ' · ' + registro().convenio : '') : 'Simulação manual';
     if (nome) definirLogo(el('resLogoBanco'), nome, dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo);
     else el('resLogoBanco').hidden = true;
     el('resLogoBanco').closest('.resultado-logo').hidden = !nome;
@@ -275,7 +287,10 @@ export async function initSimulador() {
     return true;
   }
 
-  banco.addEventListener('change', () => { perfilSelecionado = null; selecionarBanco(); simular(true); });
+  banco.addEventListener('change', () => {
+    if (consultaOutrosAtiva && banco.value !== bancoOutros?.valor) bancoOutros=null;
+    perfilSelecionado = null; selecionarBanco(); simular(true);
+  });
   prazo.addEventListener('change', () => { atualizarTabelas(); limparResultado(); simular(true); });
   tabela.addEventListener('change', () => { atualizarFator(); limparResultado(); simular(true); });
   origem.addEventListener('change', () => {
@@ -329,8 +344,9 @@ export async function initSimulador() {
       porParcela: modoParcela.checked,
       operacao: operacao.value,
       banco: banco.value,
-      nomeBanco: registro()?.nome || '',
-      logo: dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo,
+      nomeBanco: registro()?.nome ? registro().nome + (consultaOutrosAtiva ? ' · ' + registro().convenio : '') : '',
+      logo: consultaOutrosAtiva ? bancoOutros?.logo
+        : dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo,
       seguro: (dadosBanco().seguros || [])[Number.parseInt(seguro.value, 10)] || null,
       opcoes: listaAtual(),
       fator: fator.value,
@@ -344,6 +360,7 @@ export async function initSimulador() {
   const pesquisa = initPesquisaBancos({
     getBancos: () => regras,
     aoFiltrar: filtros => {
+      if (consultaOutrosAtiva) return;
       const chave = JSON.stringify([filtros.idade, filtros.especie, filtros.assina, filtros.prods]);
       if (chave === ultimoPerfil) return;
       ultimoPerfil = chave;
@@ -358,6 +375,7 @@ export async function initSimulador() {
       return tipos.some(tipo => listaAtual(reg, tipo, filtros).some(linha => !/^\d+$/.test(alvo) || Number(linha.prazo) === Number(alvo)));
     },
     aoSelecionar: (regra, filtros, _blocos, correspondente) => {
+      if (consultaOutrosAtiva) return;
       const reg = bancos.find(b => b.regra === regra || chaveBanco(b.nome) === chaveBanco(regra.nomeBanco));
       if (!reg) return;
       perfilSelecionado = { filtros };
@@ -384,6 +402,71 @@ export async function initSimulador() {
       el('sim-operacao').open = true;
       el('sim-operacao').scrollIntoView({ behavior: 'smooth', block: 'start' });
       (temFator ? (modoParcela.checked ? valor : parcela) : fator).focus({ preventScroll: true });
+    }
+  });
+
+  function trocarConsulta(outros) {
+    if (consultaOutrosAtiva === outros) return;
+    const antes = consultaOutrosAtiva ? 'outros' : 'inss';
+    contextosConsulta[antes] = {
+      valores: Object.fromEntries(camposContexto.map(id=>[id,el(id).value])),
+      porParcela: modoParcela.checked, perfil: perfilSelecionado, fatorDigitado
+    };
+    consultaOutrosAtiva=outros;
+    const salvo=contextosConsulta[outros ? 'outros' : 'inss'];
+    perfilSelecionado=outros ? null : salvo?.perfil || null;
+    origem.querySelector('[value=tabela]').disabled=outros;
+    el('sim-base-status').hidden=outros;
+    root.querySelector('.sim-hero-copy h1').textContent=outros ? 'Simulador — Outros Convênios' : 'Simulador INSS';
+    montarBancos();
+    const valores=salvo?.valores || {};
+    for (const id of camposContexto) {
+      if (['slPrazo','slTabela','slSeguro','slBanco'].includes(id)) continue;
+      el(id).value=valores[id] ?? (id==='slOrigemFator' ? 'manual' : id==='slOperacao' ? 'margem' : '');
+    }
+    banco.value=valores.slBanco || '';
+    if (outros) origem.value='manual';
+    modoParcela.checked=!!salvo?.porParcela;
+    modoLiberado.checked=!modoParcela.checked;
+    fatorDigitado=salvo?.fatorDigitado || '';
+    selecionarBanco();
+    if ([...prazo.options].some(o=>o.value===valores.slPrazo)) {
+      prazo.value=valores.slPrazo; atualizarTabelas();
+    }
+    if ([...tabela.options].some(o=>o.value===valores.slTabela)) {
+      tabela.value=valores.slTabela; atualizarFator();
+    }
+    if ([...seguro.options].some(o=>o.value===valores.slSeguro)) seguro.value=valores.slSeguro;
+    if (!outros) pesquisa.atualizar();
+    simular(true);
+    if (outros && !bancoOutros) avisar('Pesquise um convênio e informe o fator manual. Esta consulta não usa tabelas nem seguros do INSS.');
+  }
+  initPesquisaOutros({
+    root, aoOrigem: trocarConsulta,
+    aoFiltrar: () => {
+      if (!bancoOutros) return;
+      bancoOutros=null;
+      fator.value=''; fatorDigitado=''; el('inpPrazoManual').value='';
+      tabelaManual.value=''; taxaManual.value='';
+      montarBancos(); limparResultado();
+      avisar('Filtros alterados. Escolha novamente uma condição de Outros Convênios.');
+    },
+    aoSelecionar: item => {
+      if (!consultaOutrosAtiva) return;
+      bancoOutros={nome:item.banco.nome, convenio:item.convenio.nome || 'Convênio sem nome', logo:item.logo,
+        valor:'outros:' + (item.banco.banco_id || item.banco.nome) + ':' + item.convenio.id};
+      perfilSelecionado=null;
+      montarBancos();
+      operacao.value=item.produto;
+      origem.value='manual';
+      fator.value=''; fatorDigitado='';
+      tabelaManual.value=''; taxaManual.value='';
+      el('inpPrazoManual').value=/^\d+$/.test(item.prazo) ? item.prazo : '';
+      selecionarBanco();
+      avisar('Banco e convênio carregados. Informe o fator manual desta condição para simular; fatores e seguros do INSS não são utilizados.');
+      el('sim-operacao').open=true;
+      el('sim-operacao').scrollIntoView({behavior:'smooth',block:'start'});
+      fator.focus({preventScroll:true});
     }
   });
 

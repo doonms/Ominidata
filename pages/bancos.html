@@ -16,7 +16,7 @@
   <button class="menu-btn" id="menuBtn">&#9776;</button>
   <nav class="sidebar" id="sidebar"></nav>
 
-  <div class="wrap">
+  <div class="wrap" inert>
     <header class="header od-hero ">
       <div class="od-brand">
         <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
@@ -61,20 +61,16 @@
   </div>
 
   <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
     import { carregarMenuLateral } from "../js/components/menuLateral.js";
     import { initBancos } from "../js/bancos/bancos.js";
 
     (async () => {
+      if (!await requirePageAccess()) return;
       carregarMenuLateral();
       await initBancos();
+      finishPageAccess();
     })();
-  </script>
-  <script>
-    const loginPath = window.location.pathname.includes('/pages/') ? './login.html' : './pages/login.html';
-    const isLoginPage = window.location.pathname.endsWith('/login.html');
-    if (!sessionStorage.getItem('ominidata_user') && !isLoginPage) {
-      window.location.href = loginPath;
-    }
   </script>
 </body>
 </html>

@@ -1,0 +1,32 @@
+/* Somente a administração de usuários. Não altera as demais páginas. */
+.usuarios-page .usuarios-grid { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.usuarios-page .usuarios-cadastro form { display: grid; gap: 9px; margin-top: 22px; }
+.usuarios-page .usuarios-cadastro label:not(:first-child) { margin-top: 8px; }
+.usuarios-page .usuarios-permissoes { padding: 13px 15px; border: 1px solid var(--od-line); border-radius: 10px; background: #061b29; margin: 8px 0; }
+.usuarios-page .usuarios-permissoes p { font-size: 12px; color: var(--od-muted); line-height: 1.6; margin: 0 0 7px; }
+.usuarios-page .usuarios-permissoes p:last-child { margin-bottom: 0; }
+.usuarios-page .usuarios-status { color: var(--od-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.usuarios-page .usuarios-status:empty { display: none; }
+.usuarios-page .usuarios-status[data-tipo=erro] { color: #ffb5bd; }
+.usuarios-page .usuarios-status[data-tipo=sucesso] { color: #87dfc7; }
+.usuarios-page .usuarios-busca { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.usuarios-page .usuarios-search-field { flex: 1 1 200px; display: grid; gap: 7px; }
+.usuarios-page .usuarios-lista { display: grid; gap: 12px; margin-top: 16px; }
+.usuarios-page .usuario-card { background: #061b29; border: 1px solid var(--od-line); border-radius: 12px; padding: 17px; min-width: 0; }
+.usuarios-page .usuario-card h3 { font-size: 14px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.usuarios-page .usuario-card p { color: var(--od-muted); font-size: 11px; line-height: 1.6; margin: 8px 0 0; }
+.usuarios-page .usuario-badge { display: inline-block; background: #102f42; border-radius: 6px; padding: 4px 8px; color: #99ccf6; font-size: 10px; font-weight: 750; }
+.usuarios-page .usuario-badge[data-perfil=master] { background: #153b39; color: #90e0ca; }
+.usuarios-page .usuario-badge[data-perfil=pendente] { background: #3c2f19; color: #f5cf8d; }
+.usuarios-page .usuario-editar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 15px; }
+.usuarios-page .usuario-editar label { flex: 1 1 160px; display: grid; gap: 5px; }
+.usuarios-page .usuarios-paginacao { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; }
+.usuarios-page #usuarios-pagina { color: var(--od-muted); font-size: 11px; }
+.usuarios-page .usuario-senha-details { border-top: 1px solid var(--od-line); margin-top: 16px; padding-top: 13px; }
+.usuarios-page .usuario-senha-details summary { color: #9ad0ff; cursor: pointer; font-size: 12px; padding: 5px 0; }
+.usuarios-page .usuario-senha-details summary:focus-visible { outline: 2px solid #8bd2ff; outline-offset: 3px; }
+.usuarios-page .usuario-senha-form { display: grid; gap: 12px; margin-top: 10px; max-width: 480px; }
+.usuarios-page .usuario-senha-form label { display: grid; gap: 6px; }
+.usuarios-page .usuario-senha-form p { margin: 0; }
+.usuarios-page .usuario-senha-form button { justify-self: start; }
+@media (max-width: 980px) { .usuarios-page .usuarios-grid { grid-template-columns: minmax(0, 1fr); } }

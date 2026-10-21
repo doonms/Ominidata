@@ -1,31 +1,9 @@
 ﻿// js/spaRouter.js
 // SPA leve com transiÃ§Ãµes, carregamento dinÃ¢mico de CSS/JS e navegaÃ§Ã£o por data-nav OU href de pÃ¡ginas.
 
-import { getCurrentUser, isAdmin } from "./auth/accessControl.js";
+import { getCurrentUser, canAccessRoute, appUrl, finishPageAccess } from "./auth/accessControl.js";
 
-const ADMIN_ROUTES = new Set([
-  'pages/base-fatores.html',
-  'pages/fatores-do-dia.html',
-  'pages/base-inss.html',
-  'pages/base-credito-pessoal.html',
-  'pages/base-outros-convenios.html',
-  'pages/base-inss-admin.html',
-  'pages/usuarios.html',
-  'pages/ajustes.html'
-]);
 const PUBLIC_REDIRECT = 'pages/pesquisa.html';
-
-let currentUserPromise = null;
-
-async function ensureCurrentUser() {
-  if (!currentUserPromise) {
-    currentUserPromise = getCurrentUser().catch(err => {
-      console.error("Não foi possível obter usuário autenticado:", err);
-      return null;
-    });
-  }
-  return currentUserPromise;
-}
 
 
 let SPA_BASE_PREFIX = '';
@@ -88,6 +66,15 @@ async function hydrateBaseInssCache() {
 // ðŸ”§ Inicializadores por pÃ¡gina
 // ===============================
 const pageInitializers = {
+  'pages/usuarios.html': async () => {
+    ensureStyle('css/style.css');
+    ensureStyle('css/layout-operacional.css');
+    ensureStyle('css/usuarios.css');
+    const { carregarMenuLateral } = await import('./components/menuLateral.js');
+    carregarMenuLateral();
+    const mod = await import('./usuarios/usuarios.js');
+    await mod.initUsuarios();
+  },
   'index.html': async () => {
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
     carregarMenuLateral();
@@ -97,7 +84,7 @@ const pageInitializers = {
     ensureStyle('css/simulador-inss.css');
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
     carregarMenuLateral();
-    const mod = await import('./simulador/index.js');
+    const mod = await import('./simulador/index.js?v=20261021-origem-2');
     mod.initSimulador?.();
   },
   'pages/base-fatores.html': async () => {
@@ -215,9 +202,10 @@ async function runPageInitializer(href) {
   document.body.classList.toggle('simulador-page', clean === 'pages/simulador.html');
   document.body.classList.toggle('base-fatores-page', ['pages/base-fatores.html', 'pages/fatores-do-dia.html'].includes(clean));
   document.body.classList.toggle('pesquisa-page', clean === 'pages/pesquisa.html');
+  document.body.classList.toggle('usuarios-page', clean === 'pages/usuarios.html');
   document.body.classList.toggle('od-page', [
     'index.html', 'pages/base-inss.html', 'pages/base-outros-convenios.html',
-    'pages/base-credito-pessoal.html', 'pages/contatos.html', 'pages/bancos.html'
+    'pages/base-credito-pessoal.html', 'pages/contatos.html', 'pages/bancos.html', 'pages/usuarios.html'
   ].includes(clean));
   const init = pageInitializers[clean];
   if (init) {
@@ -292,7 +280,8 @@ export function iniciarSPA() {
     base_outros_convenios: 'pages/base-outros-convenios.html',
     bancos: 'pages/bancos.html',
     pesquisa: 'pages/pesquisa.html',
-    contatos: 'pages/contatos.html'
+    contatos: 'pages/contatos.html',
+    usuarios: 'pages/usuarios.html'
   };
 
   const fadeOut = async el => { if (!el) return; el.style.transition='opacity .25s'; el.style.opacity='0'; await new Promise(r=>setTimeout(r,250)); };
@@ -323,8 +312,18 @@ export function iniciarSPA() {
     }
     normalized = normalized.replace(/^\/+/, '').split(/[?#]/)[0] || 'index.html';
 
-    const user = await ensureCurrentUser();
-    if (ADMIN_ROUTES.has(normalized) && !isAdmin(user)) {
+    let user;
+    try {
+      user = await getCurrentUser();
+    } catch (err) {
+      alert(err.message);
+      return;
+    }
+    if (!user) {
+      window.location.replace(appUrl('pages/login.html'));
+      return;
+    }
+    if (!canAccessRoute(user, normalized)) {
       const redirectTarget = PUBLIC_REDIRECT;
       if (normalized === redirectTarget) {
         console.warn('Usuário sem acesso administrativo tentou acessar rota protegida.');
@@ -381,6 +380,7 @@ export function iniciarSPA() {
 
       // chama o inicializador da pÃ¡gina apÃ³s injeÃ§Ã£o
       await runPageInitializer(href);
+      finishPageAccess();
       document.dispatchEvent(new CustomEvent('spa:page-loaded', { detail: { href } }));
     } catch (err) {
       console.error('Erro ao carregar pÃ¡gina:', err);
