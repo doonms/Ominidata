@@ -35,7 +35,7 @@ export function definirLogo(img, nome, arquivo = '') {
 }
 
 // Elegibilidade compartilhada; o Avançado acrescenta os detalhes já usados na Pesquisa.
-export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
+export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltrar }) {
   const form = document.querySelector('#sim-search-form');
   const results = document.querySelector('#sim-bank-results');
   const count = document.querySelector('#sim-bank-count');
@@ -80,13 +80,14 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar }) {
   function pesquisar() {
     const avancado = !!form.querySelector('#sim-modo-avancado')?.checked;
     results.classList.toggle('is-advanced', avancado);
+    const filtros = lerFiltros();
+    aoFiltrar?.(filtros);
     if (!form.checkValidity()) {
       results.replaceChildren();
       count.textContent = 'Confira os filtros';
       status.textContent = 'Informe uma idade válida entre 0 e 120 anos.';
       return;
     }
-    const filtros = lerFiltros();
     const bancos = getBancos();
     const lista = aplicarFiltros(bancos, filtros);
     results.replaceChildren();

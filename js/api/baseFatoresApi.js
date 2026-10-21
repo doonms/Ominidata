@@ -1,10 +1,14 @@
 import { supabase } from '../supa/supabaseClient.js';
 import { parseNumeroCalculo } from '../simulador/calculadora-fator.js';
 import { normalizarBaseFatores, chaveTabelaFator } from '../simulador/base-fatores-modelo.js';
+import { validarCadastroTabelas } from '../simulador/cadastro-tabelas-fatores.js';
+import { normalizarPublico } from '../simulador/publico-tabelas.js';
 
 const TAMANHO_PAGINA = 1000;
 export const MIGRACAO_FATORES = 'supabase/migrations/20261016_base_fatores_plano.sql';
 export const MIGRACAO_VINCULOS = 'supabase/migrations/20261020_base_fatores_vinculos.sql';
+export const MIGRACAO_PUBLICO = 'supabase/migrations/20261020_base_fatores_publico.sql';
+const COLUNAS_PUBLICO = ['publico_assinatura', 'publico_invalidez'];
 
 function objeto(valor) {
   return valor !== null && typeof valor === 'object' && !Array.isArray(valor);
@@ -24,6 +28,71 @@ function identidade(row) {
   return JSON.stringify([nomeNormalizado(row.banco),
     row.tipo === 'cartao' ? 'cartao' : 'margem', Number(row.prazo),
     String(row.plano ?? row.tabela ?? '').trim()]);
+}
+
+function identidadeTabela(row) {
+  return JSON.stringify([nomeNormalizado(row.banco), row.tipo, String(row.plano ?? row.tabela ?? '').trim()]);
+}
+
+function temPublico(row) {
+  return COLUNAS_PUBLICO.some(coluna => Object.hasOwn(row, coluna));
+}
+
+function normalizarPublicoLinha(row) {
+  return normalizarPublico({
+    assinatura: row.publico_assinatura ?? 'todos',
+    invalidez: row.publico_invalidez ?? 'todos'
+  }, true);
+}
+
+function camposPublico(row) {
+  const publico = normalizarPublicoLinha(row);
+  return { publico_assinatura: publico.assinatura, publico_invalidez: publico.invalidez };
+}
+
+function validarPublicos(linhas) {
+  const tabelas = new Map();
+  for (const row of linhas) {
+    const publico = normalizarPublicoLinha(row);
+    const chave = identidadeTabela(row);
+    const anterior = tabelas.get(chave);
+    if (anterior && (anterior.assinatura !== publico.assinatura || anterior.invalidez !== publico.invalidez)) {
+      throw new Error(`O público da tabela "${row.plano || row.tabela || '(sem nome)'}" em ${row.banco} está diferente entre os prazos. Corrija e envie todos os prazos da tabela juntos. Nenhum envio foi iniciado.`);
+    }
+    tabelas.set(chave, publico);
+  }
+}
+
+// A ausência de uma coluna não é uma ordem para apagar as marcações locais.
+// Quando o remoto/arquivo informa a marcação, ela vale para a tabela inteira.
+function reunirPublicos(linhas) {
+  const tabelas = new Map();
+  for (const row of linhas) {
+    if (!temPublico(row)) continue;
+    const chave = identidadeTabela(row);
+    const campos = camposPublico(row);
+    const atual = tabelas.get(chave) || {};
+    for (const coluna of COLUNAS_PUBLICO) {
+      if (!Object.hasOwn(row, coluna)) continue;
+      if (Object.hasOwn(atual, coluna) && atual[coluna] !== campos[coluna]) {
+        throw new Error(`O público da tabela "${row.plano || row.tabela || '(sem nome)'}" está diferente entre os prazos.`);
+      }
+      atual[coluna] = campos[coluna];
+    }
+    tabelas.set(chave, atual);
+  }
+  return tabelas;
+}
+
+function aplicarPublicos(base, publicos) {
+  for (const [banco, dados] of Object.entries(base)) {
+    for (const tipo of ['margem', 'cartao']) {
+      for (const item of dados.fatores[tipo]) {
+        const campos = publicos.get(identidadeTabela({ ...item, banco, tipo }));
+        if (campos) Object.assign(item, campos);
+      }
+    }
+  }
 }
 
 function registrosAtuais(rows) {
@@ -52,10 +121,13 @@ function validarGrupos(linhas) {
     if (!row.grupo_fator) continue;
     const chave = JSON.stringify([nomeNormalizado(row.banco), row.tipo, grupoFator(row.grupo_fator)]);
     const fator = parseNumeroCalculo(row.fator);
-    if (grupos.has(chave) && grupos.get(chave) !== fator) {
+    if (grupos.has(chave) && grupos.get(chave).prazo !== Number(row.prazo)) {
+      throw new Error('Um vínculo não pode compartilhar fatores entre prazos diferentes.');
+    }
+    if (grupos.has(chave) && grupos.get(chave).fator !== fator) {
       throw new Error(`As tabelas vinculadas em ${row.banco}, ${row.tipo} precisam ter o mesmo fator. Atualize e envie todas as tabelas do vínculo juntas. Nenhum envio foi iniciado.`);
     }
-    grupos.set(chave, fator);
+    grupos.set(chave, { fator, prazo: Number(row.prazo) });
   }
 }
 
@@ -74,6 +146,7 @@ export function mensagemErroFatores(erro) {
 // Valida o arquivo inteiro ANTES de qualquer escrita, sem descartar linhas inválidas silenciosamente.
 export function prepararFatores(base) {
   if (!objeto(base) || !Object.keys(base).length) throw new Error('O JSON precisa conter bancos com listas de fatores.');
+  validarCadastroTabelas(base);
   const atual = normalizarBaseFatores(base, { estrito: true });
   const linhas = new Map();
   for (const [banco, dados] of Object.entries(atual)) {
@@ -93,10 +166,12 @@ export function prepararFatores(base) {
         const row = { banco: banco.trim(), convenio: 'INSS', tipo, prazo, fator, taxa,
           plano: String(item.plano ?? item.tabela ?? '').trim() };
         if (Object.hasOwn(item, 'grupo_fator')) row.grupo_fator = grupoFator(item.grupo_fator);
+        if (temPublico(item)) Object.assign(row, camposPublico(item));
         const chave = identidade(row);
         const anterior = linhas.get(chave);
         if (anterior && (anterior.fator !== fator || anterior.taxa !== taxa ||
-            anterior.grupo_fator !== row.grupo_fator)) {
+            anterior.grupo_fator !== row.grupo_fator ||
+            COLUNAS_PUBLICO.some(coluna => anterior[coluna] !== row[coluna]))) {
           throw new Error(`Há tabelas diferentes com o mesmo nome/prazo em ${banco}. Dê um nome distinto para cada tabela.`);
         }
         linhas.set(chave, row);
@@ -105,6 +180,7 @@ export function prepararFatores(base) {
   }
   if (!linhas.size) throw new Error('O arquivo não contém fatores para enviar. Nenhum dado foi alterado.');
   validarGrupos(linhas.values());
+  validarPublicos(linhas.values());
   return [...linhas.values()];
 }
 
@@ -123,6 +199,7 @@ export async function carregarFatoresRemotos() {
 // Preserva tabelas locais, seguros e logos. Remoto atualiza somente as linhas correspondentes.
 export function mesclarFatoresRemotos(rows, local = {}) {
   const base = normalizarBaseFatores(local);
+  const publicosRemotos = [];
   for (const row of registrosAtuais(rows)) {
     if (!nomeSeguro(row.banco) || !['margem', 'cartao'].includes(row.tipo) ||
         (row.convenio && String(row.convenio).toUpperCase() !== 'INSS')) continue;
@@ -138,16 +215,22 @@ export function mesclarFatoresRemotos(rows, local = {}) {
     const item = { prazo: row.prazo, fator: row.fator, taxa: row.taxa ?? '', plano };
     // Ausência da coluna em um schema antigo não apaga vínculos locais.
     if (Object.hasOwn(row, 'grupo_fator')) item.grupo_fator = grupoFator(row.grupo_fator);
+    for (const coluna of COLUNAS_PUBLICO) {
+      if (Object.hasOwn(row, coluna)) item[coluna] = camposPublico(row)[coluna];
+    }
+    publicosRemotos.push({ ...item, banco: nome, tipo: row.tipo });
     const indice = lista.findIndex(atual => Number(atual.prazo) === Number(item.prazo) &&
       String(atual.plano ?? atual.tabela ?? '').trim() === plano);
     if (indice < 0) lista.push(item);
     else lista[indice] = { ...lista[indice], ...item };
   }
+  aplicarPublicos(base, reunirPublicos(publicosRemotos));
   return base;
 }
 
 export function mesclarArquivoFatores(importado, local = {}) {
   const base = normalizarBaseFatores(local);
+  const publicosImportados = [];
   for (const [nome, dados] of Object.entries(normalizarBaseFatores(importado, { estrito: true }))) {
     const chave = Object.keys(base).find(n => nomeNormalizado(n) === nomeNormalizado(nome)) || nome;
     const anterior = base[chave] || {};
@@ -156,12 +239,14 @@ export function mesclarArquivoFatores(importado, local = {}) {
     for (const tipo of ['margem', 'cartao']) {
       const lista = banco.fatores[tipo];
       for (const item of dados.fatores[tipo]) {
+        publicosImportados.push({ ...item, banco: chave, tipo });
         const indice = lista.findIndex(atual => chaveTabelaFator(atual) === chaveTabelaFator(item));
         if (indice < 0) lista.push({ ...item });
         else lista[indice] = { ...lista[indice], ...item };
       }
     }
   }
+  aplicarPublicos(base, reunirPublicos(publicosImportados));
   return base;
 }
 
@@ -185,6 +270,11 @@ export async function enviarFatoresRemotos(base) {
   if (!temVinculos && linhas.some(row => row.grupo_fator)) {
     throw new Error(`O Supabase ainda não possui a coluna "grupo_fator". Execute ${MIGRACAO_VINCULOS} no SQL Editor para publicar os vínculos. Os dados continuam neste navegador; nenhum registro remoto foi alterado.`);
   }
+  const colunasPublico = await Promise.all(COLUNAS_PUBLICO.map(colunaDisponivel));
+  const temColunasPublico = colunasPublico.every(Boolean);
+  if (!temColunasPublico && linhas.some(temPublico)) {
+    throw new Error(`O Supabase ainda não possui as colunas de público das tabelas. Execute ${MIGRACAO_PUBLICO} no SQL Editor para publicar as restrições de assinatura e invalidez. Os dados continuam neste navegador; nenhum registro remoto foi alterado.`);
+  }
   const temDataLegada = await colunaDisponivel('data');
   const atuais = registrosAtuais(await carregarFatoresRemotos());
   const porChave = new Map();
@@ -200,23 +290,29 @@ export async function enviarFatoresRemotos(base) {
   for (const row of linhas) {
     const anterior = porChave.get(identidade(row));
     const novo = { ...row };
-    efetivas.set(identidade(row), { ...anterior, ...row });
+    const camposEfetivos = { ...row };
+    if (!temColunasPublico) COLUNAS_PUBLICO.forEach(coluna => delete camposEfetivos[coluna]);
+    efetivas.set(identidade(row), { ...anterior, ...camposEfetivos });
     if (anterior) {
       if (anterior.id == null) throw new Error('Um fator remoto está sem ID. Nenhum envio foi feito; confira a estrutura da tabela no Supabase.');
       const taxaAnterior = anterior.taxa == null || anterior.taxa === '' ? null : parseNumeroCalculo(anterior.taxa);
       const mudouVinculo = temVinculos && Object.hasOwn(row, 'grupo_fator') &&
         grupoFator(anterior.grupo_fator) !== row.grupo_fator;
-      if (parseNumeroCalculo(anterior.fator) === row.fator && taxaAnterior === row.taxa && !mudouVinculo) {
+      const mudouPublico = temColunasPublico && temPublico(row) &&
+        COLUNAS_PUBLICO.some(coluna => (anterior[coluna] ?? 'todos') !== row[coluna]);
+      if (parseNumeroCalculo(anterior.fator) === row.fator && taxaAnterior === row.taxa && !mudouVinculo && !mudouPublico) {
         mantidos++;
       } else {
         // ID apenas no filtro do UPDATE, nunca no conteúdo enviado para gravar.
         const valores = { fator: row.fator, taxa: row.taxa };
         if (temVinculos && Object.hasOwn(row, 'grupo_fator')) valores.grupo_fator = row.grupo_fator;
+        if (temColunasPublico && temPublico(row)) Object.assign(valores, camposPublico(row));
         alteracoes.push({ id: anterior.id, valores });
       }
     } else {
       if (!temPlano) delete novo.plano;
       if (!temVinculos) delete novo.grupo_fator;
+      if (!temColunasPublico) COLUNAS_PUBLICO.forEach(coluna => delete novo[coluna]);
       // Compatibilidade com projetos antigos cuja coluna data ainda é NOT NULL.
       // Valor técnico fixo: nenhuma tabela nova é dividida por data.
       if (temDataLegada) novo.data = '1970-01-01';
@@ -225,6 +321,7 @@ export async function enviarFatoresRemotos(base) {
   }
   // Evita que um arquivo parcial altere só um membro de um vínculo já publicado.
   validarGrupos(efetivas.values());
+  validarPublicos(efetivas.values());
   let atualizados = 0;
   let inseridos = 0;
   try {

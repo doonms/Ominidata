@@ -121,7 +121,7 @@ def main():
         assert not page.evaluate('window.__qaWrites.length')
         assert 'migrations/20261016_base_fatores_plano.sql' in dialogs[-1]
         assert 'sucesso' not in dialogs[-1]
-        assert page.evaluate("JSON.parse(localStorage.getItem('ominidata_base_fatores_v1')).BancodoBrasil.fatores.margem[1].plano") == 'Tabela B'
+        assert page.evaluate("JSON.parse(localStorage.getItem('ominidata_base_fatores_v1')).BancodoBrasil.tabelas.margem[1].nome") == 'Tabela B'
         assert not errors, errors
         context.close()
         print('PASS: schema antigo bloqueia nomes sem perda; arquivo permanece local e orienta SQL')

@@ -72,7 +72,7 @@
           <div class="sim-field">
             <label for="sim-assina">Cliente assina?</label>
             <select id="sim-assina">
-              <option value="qualquer">Qualquer</option>
+              <option value="qualquer">Não informado</option>
               <option value="sim">Sim</option>
               <option value="nao">Não</option>
             </select>
@@ -233,7 +233,8 @@
           </div>
           <div class="grp sim-field">
             <label for="slTabela">Tabela</label>
-            <select id="slTabela"></select>
+            <select id="slTabela" aria-describedby="sim-publico-hint"></select>
+            <small id="sim-publico-hint" class="sim-field-hint">As tabelas seguem “Cliente assina?” e “Espécie” da pesquisa acima. Tabelas normais aparecem para todos.</small>
           </div>
         </div>
 

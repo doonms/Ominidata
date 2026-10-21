@@ -8,6 +8,8 @@ import { chaveBanco, definirLogo, initPesquisaBancos, listaRegras, PRODUTOS } fr
 import { prazosPorIdade } from '../filtros/rapido.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
+import { criarCadastroTabelas } from './cadastro-tabelas-fatores.js';
+import { tabelaAtendePublico } from './publico-tabelas.js';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -79,7 +81,11 @@ export async function initSimulador() {
   function listaAtual(reg = registro(), tipo = operacao.value, filtros = perfilSelecionado?.filtros) {
     const dados = base[reg?.chaveFator];
     if (!dados?.fatores || !['margem', 'cartao'].includes(tipo)) return [];
-    let lista = dados.fatores[tipo] || [];
+    const publicoCliente = filtros || {
+      assina: el('sim-assina')?.value,
+      especie: el('sim-especie')?.value
+    };
+    let lista = (dados.fatores[tipo] || []).filter(linha => tabelaAtendePublico(linha, publicoCliente));
     const regra = reg?.regra;
     if (filtros && regra) {
       const blocos = prazosPorIdade(regra, filtros.especie, filtros.idade, { [tipo]: true });
@@ -334,8 +340,16 @@ export async function initSimulador() {
     })
   });
   montarBancos(); selecionarBanco();
+  let ultimoPerfil = '';
   const pesquisa = initPesquisaBancos({
     getBancos: () => regras,
+    aoFiltrar: filtros => {
+      const chave = JSON.stringify([filtros.idade, filtros.especie, filtros.assina, filtros.prods]);
+      if (chave === ultimoPerfil) return;
+      ultimoPerfil = chave;
+      if (perfilSelecionado) perfilSelecionado = { filtros };
+      atualizarPrazos(); atualizarModo(); limparResultado(); simular(true);
+    },
     temTabela: (regra, filtros, correspondente) => {
       const reg = bancos.find(b => b.regra === regra || chaveBanco(b.nome) === chaveBanco(regra.nomeBanco));
       const produtos = Object.keys(PRODUTOS).filter(p => filtros.prods[p]);
@@ -384,7 +398,7 @@ export async function initSimulador() {
     base = mesclarFatoresRemotos(fatoresRemotos.value, base);
     try {
       preservarBackupFatoresDatados(readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS));
-      writeToStorage(BASE_FATORES_KEY, base, BASE_FATORES_MIRRORS);
+      writeToStorage(BASE_FATORES_KEY, criarCadastroTabelas(base, readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS) || {}), BASE_FATORES_MIRRORS);
     }
     catch (error) { console.warn('Não foi possível atualizar o cache dos fatores:', error); }
     if (fonte) fonte.textContent = 'Fatores consultados no Supabase; dados locais também foram preservados.';

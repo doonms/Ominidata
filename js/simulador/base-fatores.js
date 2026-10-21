@@ -2,9 +2,9 @@ import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFro
 import { carregarFatoresRemotos, enviarFatoresRemotos, mesclarFatoresRemotos,
   mesclarArquivoFatores, mensagemErroFatores, prepararFatores } from '../api/baseFatoresApi.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
-import { parseNumeroCalculo } from './calculadora-fator.js';
-import { tabelasVinculadas, vincularFator, atualizarFatorVinculado, desvincularFator } from './vinculos-fatores.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
+import { criarCadastroTabelas, temPrazosPendentes } from './cadastro-tabelas-fatores.js';
+import { initEditorTabelas } from './tabelas-fatores-editor.js';
 // === Base de Fatores (Simulador Limpo) ===
 // Controle de INSS, margem/cartão e seguros, sem divisão por datas.
 
@@ -39,10 +39,10 @@ const DEFAULT_SELECTORS = {
   swCartao: '#bf-swCartao',
   blocoMargem: '#bf-blocoMargem',
   listaPrazosMargem: '#bf-listaPrazosMargem',
-  addPrazoMargem: '#bf-addPrazoMargem',
+  addTabelaMargem: '#bf-addTabelaMargem',
   blocoCartao: '#bf-blocoCartao',
   listaPrazosCartao: '#bf-listaPrazosCartao',
-  addPrazoCartao: '#bf-addPrazoCartao',
+  addTabelaCartao: '#bf-addTabelaCartao',
   listaSeguros: '#bf-listaSeguros',
   addSeguro: '#bf-addSeguro',
   btnNovo: '#bf-novoBanco',
@@ -76,7 +76,7 @@ async function uploadBaseFatores(file, els) {
     const baseFatores = await readJsonFile(file);
     prepararFatores(baseFatores);
     guardarBackupLocal();
-    state.bancos = mesclarArquivoFatores(baseFatores, state.bancos);
+    state.bancos = criarCadastroTabelas(mesclarArquivoFatores(baseFatores, state.bancos), state.bancos);
     saveState();
     state.filtroBanco = '';
     if (els.buscaBanco) els.buscaBanco.value = '';
@@ -124,6 +124,10 @@ export function initBaseFatores(cfg = {}) {
   }
 
   // preencher select de bancos
+  els.editorTabelas = initEditorTabelas({
+    root: els.slBanco.closest('.bf-page'), getBanco: getBancoAtual, salvar: saveState,
+    listas: { margem: els.listaPrazosMargem, cartao: els.listaPrazosCartao }, avisar: avisarVinculos
+  });
   const nomes = renderBancoSelect(els);
   syncBancoSelecionado(els, nomes);
 
@@ -136,8 +140,11 @@ export function initBaseFatores(cfg = {}) {
   if (els.btnExportar) els.btnExportar.onclick = () => exportarJSON();
   if (els.swMargem) els.swMargem.onchange = () => toggleMargem(els);
   if (els.swCartao) els.swCartao.onchange = () => toggleCartao(els);
-  if (els.addPrazoMargem) els.addPrazoMargem.onclick = () => addPrazo(els, "margem");
-  if (els.addPrazoCartao) els.addPrazoCartao.onclick = () => addPrazo(els, "cartao");
+  if (els.addTabelaMargem) els.addTabelaMargem.onclick = () => addTabela(els, "margem");
+  if (els.addTabelaCartao) els.addTabelaCartao.onclick = () => addTabela(els, "cartao");
+  els.slBanco.closest('.bf-page')?.querySelectorAll('[data-bf-add-tabela]').forEach(botao => {
+    botao.onclick = () => addTabela(els, botao.dataset.bfAddTabela);
+  });
   if (els.buscaBanco) els.buscaBanco.oninput = () => filtrarBancos(els);
 
   initCalculadoraManual(els);
@@ -168,7 +175,15 @@ function loadState() {
   if (data && typeof data === "object" && !Array.isArray(data)) {
     try {
       preservarBackupFatoresDatados(data);
-      state.bancos = normalizarBaseFatores(data);
+      const normalizada = normalizarBaseFatores(data);
+      const cadastro = criarCadastroTabelas(Object.fromEntries(Object.keys(normalizada).map(nome =>
+        [nome, data[nome]?.tabelas ? data[nome] : normalizada[nome]])));
+      if (temPrazosPendentes(cadastro) && !localStorage.getItem('ominidata_base_fatores_antes_editor_tabelas_v1')) {
+        localStorage.setItem('ominidata_base_fatores_antes_editor_tabelas_v1', JSON.stringify({
+          data: new Date().toISOString(), bancos: data
+        }));
+      }
+      state.bancos = cadastro;
       writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
     } catch (error) {
       state.bancos = data;
@@ -238,7 +253,7 @@ function selectBanco(els) {
     return;
   }
   if (!state.bancos[nome]) {
-    state.bancos[nome] = { fatores: novaEstrutura(), seguros: [] };
+    state.bancos[nome] = { tabelas: novaEstrutura(), seguros: [] };
   }
   const b = state.bancos[nome];
   renderBanco(b, els);
@@ -246,7 +261,7 @@ function selectBanco(els) {
 
 function renderBaseFatores(baseFatoresRows, els) {
   if (!baseFatoresRows?.length) return;
-  const bancos = mesclarFatoresRemotos(baseFatoresRows, state.bancos);
+  const bancos = criarCadastroTabelas(mesclarFatoresRemotos(baseFatoresRows, state.bancos), state.bancos);
   guardarBackupLocal();
   state.bancos = bancos;
   saveState();
@@ -258,7 +273,7 @@ function renderBaseFatores(baseFatoresRows, els) {
 function renderBanco(b, els) {
   if (els.btnRemover) els.btnRemover.disabled = false;
   atualizarLogo(els, state.bancoAtual);
-  b.fatores ??= novaEstrutura();
+  b.tabelas ??= novaEstrutura();
   aplicarSwitchesBanco(b, els);
   renderFatores(b, els);
   renderSeguros(b, els);
@@ -267,7 +282,7 @@ function renderBanco(b, els) {
 function aplicarSwitchesBanco(b, els) {
   if (!b) return;
   if (!els.swMargem && !els.swCartao) return;
-  const fatores = b.fatores || novaEstrutura();
+  const fatores = b.tabelas || novaEstrutura();
   const fazMargem = b.hasOwnProperty("fazMargem")
     ? !!b.fazMargem
     : (fatores.margem?.length ?? 0) > 0;
@@ -291,7 +306,7 @@ function novoBanco(els) {
   nome = nome.trim();
   if (!nome) return;
   if (state.bancos[nome]) return alert("Banco ja existe");
-  state.bancos[nome] = { fatores: novaEstrutura(), seguros: [] };
+  state.bancos[nome] = { tabelas: novaEstrutura(), seguros: [] };
   saveState();
   state.filtroBanco = "";
   if (els.buscaBanco) els.buscaBanco.value = "";
@@ -309,6 +324,7 @@ function toggleMargem(els) {
     saveState();
   }
   els.blocoMargem.style.display = ativo ? "block" : "none";
+  els.slBanco.closest('.bf-page')?.querySelectorAll('[data-bf-add-tabela="margem"]').forEach(botao => { botao.hidden = !ativo; });
 }
 
 function toggleCartao(els) {
@@ -319,79 +335,15 @@ function toggleCartao(els) {
     saveState();
   }
   els.blocoCartao.style.display = ativo ? "block" : "none";
+  els.slBanco.closest('.bf-page')?.querySelectorAll('[data-bf-add-tabela="cartao"]').forEach(botao => { botao.hidden = !ativo; });
 }
 
-function addPrazo(els, tipo) {
-  const b = getBancoAtual();
-  const arr = b.fatores[tipo];
-  arr.push({ prazo: "", fator: "", taxa: "", plano: "" });
-  renderFatores(b, els);
-  saveState();
+function addTabela(els, tipo) {
+  els.editorTabelas.adicionarTabela(tipo);
 }
 
-function renderFatores(b, els) {
-  const m = els.listaPrazosMargem;
-  const c = els.listaPrazosCartao;
-  m.innerHTML = "";
-  c.innerHTML = "";
-
-  b.fatores.margem.forEach((f, i) => m.appendChild(renderLinhaPrazo(f, i, "margem", b, els)));
-  b.fatores.cartao.forEach((f, i) => c.appendChild(renderLinhaPrazo(f, i, "cartao", b, els)));
-}
-
-function renderLinhaPrazo(f, idx, tipo, b, els) {
-  const lista = b.fatores[tipo];
-  const div = document.createElement("div");
-  div.className = "factor-row";
-  if (typeof f.taxa !== "string") f.taxa = f.taxa != null ? String(f.taxa) : "";
-  if (typeof f.plano !== "string") f.plano = f.plano != null ? String(f.plano) : "";
-  div.innerHTML = `
-    <input type="number" class="prazo" placeholder="Prazo" aria-label="Prazo" />
-    <input type="number" step="any" min="0" class="fator" placeholder="Fator" aria-label="Fator" />
-    <input type="text" class="taxa" placeholder="Taxa" aria-label="Taxa" />
-    <input type="text" class="plano" placeholder="Plano/Tabela" aria-label="Plano/Tabela" />
-    <button type="button" class="danger small">Remover</button>
-  `;
-  const [inPrazo, inFator, inTaxa, inPlano, bt] = div.children;
-  inPrazo.value = f.prazo ?? '';
-  inFator.value = parseNumeroCalculo(f.fator) ?? '';
-  inTaxa.value = f.taxa;
-  inPlano.value = f.plano;
-  inPrazo.addEventListener("input", () => { f.prazo = parseInt(inPrazo.value) || ""; saveState(); });
-  inFator.addEventListener("input", () => {
-    const vinculadas = tabelasVinculadas(lista, f);
-    if (!atualizarFatorVinculado(lista, f, inFator.value)) {
-      if (vinculadas.length > 1) {
-        avisarVinculos('Informe um fator maior que zero. Os fatores vinculados foram mantidos.', true);
-      } else {
-        f.fator = '';
-        saveState();
-      }
-      return;
-    }
-    const container = tipo === 'cartao' ? els.listaPrazosCartao : els.listaPrazosMargem;
-    container.querySelectorAll('.factor-row').forEach((row, indice) => {
-      if (lista[indice] !== f && vinculadas.includes(lista[indice])) {
-        row.querySelector('.fator').value = f.fator;
-      }
-    });
-    saveState();
-    if (vinculadas.length > 1) avisarVinculos(`Fator atualizado em ${vinculadas.length} tabelas vinculadas. Nomes, taxas e prazos foram mantidos. Alteração salva neste navegador.`);
-  });
-  inFator.addEventListener('blur', () => {
-    if (tabelasVinculadas(lista, f).length > 1) inFator.value = f.fator;
-  });
-  inTaxa.addEventListener("input", () => { f.taxa = inTaxa.value; saveState(); });
-  inPlano.addEventListener("input", () => { f.plano = inPlano.value; saveState(); });
-  bt.addEventListener("click", () => {
-    lista.splice(idx, 1);
-    desvincularFator(lista, f);
-    renderFatores(b, els);
-    saveState();
-  });
-  // A tela antiga de fatores-do-dia compartilha o editor, mas não este layout.
-  if (els.slBanco.closest('.bf-page')) div.appendChild(renderVinculoFator(f, lista, b, els));
-  return div;
+function renderFatores(_banco, els) {
+  els.editorTabelas.renderizar();
 }
 
 function avisarVinculos(mensagem, erro = false) {
@@ -399,78 +351,6 @@ function avisarVinculos(mensagem, erro = false) {
   if (!status) return;
   status.textContent = mensagem;
   status.classList.toggle('is-error', erro);
-}
-
-function rotuloTabela(item, indice) {
-  return `${item.plano || item.tabela || `Tabela ${indice + 1}`} · ${item.prazo || '?'}x · fator ${item.fator || 'não informado'}`;
-}
-
-function renderVinculoFator(f, lista, b, els) {
-  const details = document.createElement('details');
-  details.className = 'bf-factor-link';
-  const summary = document.createElement('summary');
-  const vinculadas = tabelasVinculadas(lista, f);
-  summary.textContent = vinculadas.length > 1 ? `Fator vinculado · ${vinculadas.length} tabelas — gerenciar` : 'Vincular fator';
-  details.classList.toggle('is-linked', vinculadas.length > 1);
-  const body = document.createElement('div');
-  body.className = 'bf-factor-link-body';
-  const info = document.createElement('p');
-  info.textContent = vinculadas.length > 1
-    ? `Compartilha o fator com: ${vinculadas.filter(item => item !== f).map(item => item.plano || item.tabela || `Tabela ${lista.indexOf(item) + 1}`).join(', ')}. Nome, taxa e prazo são independentes.`
-    : 'Escolha outra tabela desta modalidade. Esta tabela passará a usar o fator da escolhida.';
-  const label = document.createElement('label');
-  label.textContent = 'Vincular esta tabela a';
-  const select = document.createElement('select');
-  select.className = 'bf-link-target';
-  label.appendChild(select);
-  const aplicar = document.createElement('button');
-  function preencherOpcoes() {
-    const anterior = select.value;
-    select.replaceChildren(new Option('Escolher tabela', ''));
-    lista.forEach((item, indice) => {
-      if (item !== f && !vinculadas.includes(item)) select.add(new Option(rotuloTabela(item, indice), String(indice)));
-    });
-    if ([...select.options].some(opcao => opcao.value === anterior)) select.value = anterior;
-    select.disabled = select.options.length < 2;
-    aplicar.disabled = select.value === '';
-    if (vinculadas.length > 1) info.textContent = `Compartilha o fator com: ${vinculadas.filter(item => item !== f).map(item => item.plano || item.tabela || `Tabela ${lista.indexOf(item) + 1}`).join(', ')}. Nome, taxa e prazo são independentes.`;
-  }
-  preencherOpcoes();
-  details.addEventListener('toggle', () => { if (details.open) preencherOpcoes(); });
-  aplicar.type = 'button';
-  aplicar.className = 'secondary small bf-link-apply';
-  aplicar.textContent = 'Vincular fator';
-  aplicar.disabled = true;
-  select.addEventListener('change', () => { aplicar.disabled = select.value === ''; });
-  aplicar.addEventListener('click', () => {
-    const referencia = select.value === '' ? null : lista[Number(select.value)];
-    if (!referencia || !(parseNumeroCalculo(referencia.fator) > 0)) {
-      avisarVinculos('A tabela escolhida precisa ter um fator maior que zero.', true);
-      return;
-    }
-    if (parseNumeroCalculo(f.fator) !== parseNumeroCalculo(referencia.fator) &&
-        !confirm(`Esta tabela passará a usar o fator ${referencia.fator} de "${referencia.plano || referencia.tabela || 'Tabela sem nome'}". Nome, taxa e prazo serão mantidos. Vincular?`)) return;
-    if (!vincularFator(lista, f, referencia)) return;
-    saveState();
-    renderFatores(b, els);
-    avisarVinculos('Tabelas vinculadas. Editar o fator de qualquer uma atualiza as demais; nomes, taxas e prazos não mudam. Para publicar, exporte e envie o JSON ao Supabase.');
-  });
-  body.append(info, label, aplicar);
-  if (vinculadas.length > 1) {
-    const remover = document.createElement('button');
-    remover.type = 'button';
-    remover.className = 'secondary small bf-link-remove';
-    remover.textContent = 'Desvincular esta tabela';
-    remover.addEventListener('click', () => {
-      desvincularFator(lista, f);
-      saveState();
-      renderFatores(b, els);
-      avisarVinculos('Tabela desvinculada. Seu fator atual foi mantido e pode ser editado separadamente.');
-    });
-    body.appendChild(remover);
-  }
-  details.append(summary, body);
-  return details;
 }
 
 function renderSeguros(b, els) {
@@ -562,9 +442,24 @@ function importarJSON(els) {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        prepararFatores(data);
+        normalizarBaseFatores(data, { estrito: true });
         guardarBackupLocal();
-        state.bancos = mesclarArquivoFatores(data, state.bancos);
+        const cadastro = criarCadastroTabelas(mesclarArquivoFatores(data, state.bancos), state.bancos);
+        // A projeção de fatores não contém tabelas vazias: preserve também os rascunhos importados,
+        // sem substituir tabelas ou prazos locais ausentes em um arquivo parcial.
+        const chaveBanco = nome => nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const [nome, banco] of Object.entries(data)) {
+          if (!banco?.tabelas) continue;
+          const destino = cadastro[Object.keys(cadastro).find(n => chaveBanco(n) === chaveBanco(nome))];
+          for (const tipo of ['margem', 'cartao']) {
+            for (const tabela of banco.tabelas[tipo] || []) {
+              if (!tabela.prazos.length && !destino.tabelas[tipo].some(t => t.nome === tabela.nome)) {
+                destino.tabelas[tipo].push(JSON.parse(JSON.stringify(tabela)));
+              }
+            }
+          }
+        }
+        state.bancos = cadastro;
         state.filtroBanco = "";
         if (els.buscaBanco) els.buscaBanco.value = "";
         saveState();
@@ -682,6 +577,7 @@ function limparInterface(els) {
   els.listaPrazosMargem.innerHTML = "";
   els.listaPrazosCartao.innerHTML = "";
   els.listaSeguros.innerHTML = "";
+  els.editorTabelas?.limpar();
   if (els.logo) {
     ocultarLogo(els.logo);
   }

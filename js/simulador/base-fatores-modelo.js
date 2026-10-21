@@ -1,4 +1,5 @@
 import { parseNumeroCalculo } from './calculadora-fator.js';
+import { projetarCadastroFatores } from './cadastro-tabelas-fatores.js';
 
 export const BACKUP_FATORES_DATADOS = 'ominidata_base_fatores_antes_unificar_datas_v1';
 const objeto = valor => valor !== null && typeof valor === 'object' && !Array.isArray(valor);
@@ -18,6 +19,7 @@ export function preservarBackupFatoresDatados(base) {
 // Formato atual: banco.fatores = { margem: [...], cartao: [...] }.
 // JSONs antigos são consolidados por prazo/nome, com a versão mais recente vencendo.
 export function normalizarBaseFatores(base, { estrito = false } = {}) {
+  base = projetarCadastroFatores(base, { estrito });
   if (!objeto(base)) {
     if (estrito) throw new Error('O JSON precisa conter bancos com listas de fatores.');
     return {};

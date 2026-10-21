@@ -2,16 +2,48 @@
 
 ## Preparação do banco
 
-A aplicação não divide mais fatores por datas. O formato atual é
-`Banco.fatores = { margem: [...], cartao: [...] }`. O editor não tem calendário
-nem remoção automática por antiguidade; as simulações usam essas mesmas listas.
+A base é organizada por tabela nomeada e seus prazos. O formato do cadastro/JSON é:
 
-JSONs e caches antigos continuam aceitos. As versões são unificadas por
-modalidade, prazo e nome da tabela: para a mesma tabela vence a versão da data
-mais recente; tabelas distintas presentes apenas em datas antigas também são
-preservadas. Antes de converter o cache, o original fica em
-`localStorage.ominidata_base_fatores_antes_unificar_datas_v1` (`criadoEm`, `bancos`).
-Essa cópia não é sobrescrita nas próximas aberturas.
+```json
+{
+  "Banco": {
+    "tabelas": {
+      "margem": [{
+        "nome": "210436 Tkt > 20k -Plus-ML",
+        "prazos": [
+          {"prazo": 12, "fator": 0.1, "taxa": 1.7},
+          {"prazo": 24, "fator": 0.05, "taxa": 1.8}
+        ]
+      }],
+      "cartao": []
+    },
+    "seguros": []
+  }
+}
+```
+
+Use **Adicionar tabela**, informe o nome e selecione os prazos padrão
+12, 24, 36, 48, 60, 72, 84, 96, 108 e 120 meses. Também existe prazo personalizado
+inteiro positivo e **Adicionar todos os padrões**. Prazos repetidos não são adicionados.
+Os botões de prazos padrão alternam entre adicionar e remover. Ao remover um
+prazo com fator ou taxa preenchidos, é solicitada confirmação.
+Cada prazo tem seu fator e sua taxa; taxa vazia não aparece na simulação.
+Cada tabela pode ser recolhida ou expandida pelo botão no cabeçalho.
+Tabelas cadastradas iniciam recolhidas; ao adicionar uma nova tabela, ela abre
+expandida para preencher os dados. Reabrir a página volta ao padrão recolhido.
+O nome, a contagem de prazos e a seleção em lote continuam visíveis quando
+recolhida. Abrir ou fechar não altera os fatores, taxas ou público cadastrado.
+O cadastro não tem divisão por datas.
+
+Rascunhos de tabelas sem prazos podem ser salvos e exportados localmente.
+Uma linha antiga com prazo vazio é exibida como **Prazo pendente**, sem bloquear
+a abertura da base. Informe um prazo válido nessa linha ou remova o rascunho.
+Fator e taxa são preservados; linhas pendentes não entram no cálculo do simulador
+e impedem a publicação do arquivo até serem corrigidas. Antes da conversão, o
+original fica em `localStorage.ominidata_base_fatores_antes_editor_tabelas_v1`.
+Para publicar no Supabase, todas as tabelas devem ter nome distinto na modalidade
+e pelo menos um prazo com fator válido. A camada de leitura projeta cada prazo
+com o nome de sua tabela para o simulador individual, comparação e envio à API.
 
 Datas antigas no Supabase servem apenas para escolher a versão anterior mais
 recente de uma tabela. A identidade de leitura/envio agora é banco, modalidade,
@@ -36,17 +68,49 @@ Para publicar vínculos de fator, execute também
 sem vínculos continuam funcionando; arquivos com vínculos não são enviados
 parcialmente nem têm seus vínculos descartados.
 
+## Público das tabelas
+
+Cada tabela tem interruptores **Assina / Não assina** e **Invalidez / Sem invalidez**.
+As opções de um mesmo grupo são exclusivas; clicar novamente desmarca a opção.
+Sem nenhuma marcação, a tabela é normal e aparece para todos os clientes.
+Com uma marcação em cada grupo, o cliente precisa atender às duas condições.
+O público vale para todos os prazos dessa tabela e não é alterado pelo vínculo de fatores.
+
+O JSON guarda, por exemplo, `"publico": {"assinatura": "nao", "invalidez": "sim"}`
+junto de `nome` e `prazos`. Os valores aceitos em cada campo são `todos`, `sim` e `nao`.
+No Supabase, cada prazo recebe as colunas `publico_assinatura` e `publico_invalidez`.
+Para publicar essas marcações, execute uma vez no SQL Editor
+`migrations/20261020_base_fatores_publico.sql`. A migração é aditiva e não altera
+IDs, dados de fatores, vínculos ou permissões.
+
+O simulador lê **Cliente assina?** e **Espécie** da pesquisa, mesmo quando o banco
+é escolhido manualmente. A lista individual e a comparação usam o mesmo filtro.
+Alterar o perfil atualiza as tabelas e invalida os resultados anteriores.
+Com assinatura **Não informado**, tabelas exclusivas de quem assina/não assina
+ficam ocultas até informar o perfil. Espécie **Invalidez** seleciona esse público;
+Geral, LOAS e Pensão são considerados sem invalidez. Tabelas normais continuam
+visíveis e o cálculo com fator manual permanece livre.
+
 ## Vincular fatores de tabelas
 
-Em **Vincular fator**, escolha outra tabela do mesmo banco e modalidade
-e confirme. A tabela passa a usar o fator da escolhida; se os fatores forem
-diferentes, uma confirmação avisa antes de substituir o valor. Outras tabelas
-podem entrar no mesmo grupo. Não há vínculos automáticos por igualdade de fator.
+Para vincular várias tabelas de uma vez, marque **Selecionar tabela** nos cartões
+(ou use **Selecionar todas**), escolha a **Tabela de referência** e clique
+em **Vincular selecionadas**. A ação está disponível no início e no fim da lista.
+Somente prazos iguais são vinculados: 12x com 12x, 24x com 24x, etc.
+Prazos exclusivos não são adicionados, removidos ou alterados. Todas as tabelas
+selecionadas precisam ter pelo menos um prazo em comum com a referência.
+Se os fatores forem diferentes, uma única confirmação avisa antes de substituir.
+**Desvincular selecionadas** remove os vínculos mantendo os fatores atuais.
+Somente as tabelas selecionadas são movidas; membros não selecionados dos
+grupos anteriores não são arrastados para o novo grupo.
 
-- Editar o fator de qualquer membro atualiza os outros membros do grupo.
+Os botões **Adicionar tabela** estão no começo e no fim das listas, com atalhos
+também no fim da página. Os prazos são adicionados dentro de cada tabela.
+O vínculo individual antigo foi removido; existe apenas a seleção em lote.
+
+- Editar o fator de um prazo atualiza esse mesmo prazo nos outros membros do grupo.
 - Nome, taxa e prazo permanecem independentes. Outro banco ou modalidade
   não é alterado.
-- **Desvincular esta tabela** conserva o fator atual, que pode ser editado sozinho.
 - Vínculos ficam no navegador e no JSON exportado. Exporte e envie o JSON para
   publicar fatores e vínculos para os demais usuários no Supabase.
 - Arquivos antigos sem a propriedade `grupo_fator` não desfazem vínculos
@@ -88,8 +152,9 @@ Com Playwright e Chrome disponíveis:
 
 ```text
 python tests/base-fatores-sync.py
-python tests/base-fatores-sem-datas.py
-python tests/base-fatores-vinculos.py
+python tests/base-fatores-tabelas.py
+python tests/base-fatores-rascunhos.py
+python tests/base-fatores-publico.py
 python tests/simulador-fluxo.py
 python tests/navegacao-paginas.py
 ```

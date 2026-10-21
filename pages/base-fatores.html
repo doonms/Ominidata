@@ -154,35 +154,35 @@
           <div class="card-title bf-card-title">
             <div>
               <span class="bf-card-kicker">Tabela operacional</span>
-              <strong>INSS — Prazos e fatores</strong>
-              <small>Cadastre as condições vigentes para cada modalidade.</small>
+              <strong>INSS — Tabelas e prazos</strong>
+              <small>Cadastre o nome da tabela e adicione seus prazos, fatores e taxas.</small>
             </div>
           </div>
 
           <!-- BLOCO MARGEM -->
-          <p class="bf-link-help">Use “Vincular fator” em uma tabela para compartilhar apenas o fator com outras do mesmo banco e modalidade. Nomes, taxas e prazos continuam independentes.</p>
+          <p class="bf-link-help">Cada tabela tem seus próprios prazos. No vínculo em lote, apenas fatores de prazos iguais são compartilhados; nomes e taxas não mudam.</p>
           <p id="bf-vinculos-status" class="bf-link-feedback" role="status" aria-live="polite"></p>
           <div id="bf-blocoMargem" class="factor-block">
             <div class="bf-block-heading">
               <div><strong>Margem</strong><span>Condições para empréstimo consignado</span></div>
-              <button id="bf-addPrazoMargem" class="small primary">Adicionar prazo</button>
+              <button type="button" id="bf-addTabelaMargem" class="small primary">Adicionar tabela</button>
             </div>
-            <div class="bf-factor-columns" aria-hidden="true">
-              <span>Prazo</span><span>Fator</span><span>Taxa</span><span>Plano / tabela</span><span>Ação</span>
-            </div>
+            <div class="bf-bulk-tools" data-tipo="margem"></div>
             <div id="bf-listaPrazosMargem" class="factor-list"></div>
+            <div class="bf-bulk-tools" data-tipo="margem" data-posicao="fim" hidden></div>
+            <div class="bf-factor-footer"><button type="button" class="small primary" data-bf-add-tabela="margem">Adicionar tabela</button></div>
           </div>
 
           <!-- BLOCO CARTAO -->
           <div id="bf-blocoCartao" class="factor-block" style="display:none">
             <div class="bf-block-heading">
               <div><strong>Cartão</strong><span>Condições para cartão consignado</span></div>
-              <button id="bf-addPrazoCartao" class="small primary">Adicionar prazo</button>
+              <button type="button" id="bf-addTabelaCartao" class="small primary">Adicionar tabela</button>
             </div>
-            <div class="bf-factor-columns" aria-hidden="true">
-              <span>Prazo</span><span>Fator</span><span>Taxa</span><span>Plano / tabela</span><span>Ação</span>
-            </div>
+            <div class="bf-bulk-tools" data-tipo="cartao"></div>
             <div id="bf-listaPrazosCartao" class="factor-list"></div>
+            <div class="bf-bulk-tools" data-tipo="cartao" data-posicao="fim" hidden></div>
+            <div class="bf-factor-footer"><button type="button" class="small primary" data-bf-add-tabela="cartao">Adicionar tabela</button></div>
           </div>
         </section>
 
@@ -201,6 +201,11 @@
           </div>
           <div id="bf-listaSeguros" class="seguro-list"></div>
         </section>
+        <div class="bf-page-footer">
+          <span>Adicionar uma nova condição</span>
+          <button type="button" class="primary small" data-bf-add-tabela="margem">Adicionar tabela de margem</button>
+          <button type="button" class="primary small" data-bf-add-tabela="cartao">Adicionar tabela de cartão</button>
+        </div>
       </main>
     </div>
   </div>
@@ -219,10 +224,10 @@
         swCartao: '#bf-swCartao',
         blocoMargem: '#bf-blocoMargem',
         listaPrazosMargem: '#bf-listaPrazosMargem',
-        addPrazoMargem: '#bf-addPrazoMargem',
+        addTabelaMargem: '#bf-addTabelaMargem',
         blocoCartao: '#bf-blocoCartao',
         listaPrazosCartao: '#bf-listaPrazosCartao',
-        addPrazoCartao: '#bf-addPrazoCartao',
+        addTabelaCartao: '#bf-addTabelaCartao',
         listaSeguros: '#bf-listaSeguros',
         addSeguro: '#bf-addSeguro',
         btnNovo: '#bf-novoBanco',
