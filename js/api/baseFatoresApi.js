@@ -8,6 +8,8 @@ const TAMANHO_PAGINA = 1000;
 export const MIGRACAO_FATORES = 'supabase/migrations/20261016_base_fatores_plano.sql';
 export const MIGRACAO_VINCULOS = 'supabase/migrations/20261020_base_fatores_vinculos.sql';
 export const MIGRACAO_PUBLICO = 'supabase/migrations/20261020_base_fatores_publico.sql';
+export const MIGRACAO_SUBSTITUICAO_FATORES = 'supabase/migrations/20261026_base_fatores_sincronizacao.sql';
+export const CACHE_FATORES_REMOTOS = 'ominidata_base_fatores_remota_v1';
 const COLUNAS_PUBLICO = ['publico_assinatura', 'publico_invalidez'];
 
 function objeto(valor) {
@@ -133,7 +135,11 @@ function validarGrupos(linhas) {
 
 export function mensagemErroFatores(erro) {
   let mensagem;
-  if (erro?.code === '42501' || erro?.status === 401 || erro?.status === 403) {
+  if (['PGRST202', '42883'].includes(erro?.code)) {
+    mensagem = `O envio direto precisa da função SQL. Execute ${MIGRACAO_SUBSTITUICAO_FATORES} no SQL Editor. Nenhuma substituição foi iniciada; seus dados locais foram preservados.`;
+  } else if (erro?.code === '40001') {
+    mensagem = 'A base mudou no Supabase desde a consulta. Sincronize, revise e envie novamente. A substituição foi cancelada.';
+  } else if (erro?.code === '42501' || erro?.status === 401 || erro?.status === 403) {
     mensagem = 'Sua sessão não tem permissão para acessar/gravar a Base de Fatores. Entre novamente e confira as permissões no Supabase.';
   } else {
     mensagem = erro?.message || 'Não foi possível acessar a Base de Fatores. Confira sua conexão e sessão.';
@@ -226,6 +232,100 @@ export function mesclarFatoresRemotos(rows, local = {}) {
   }
   aplicarPublicos(base, reunirPublicos(publicosRemotos));
   return base;
+}
+
+// Consulta autoritativa: mantém seguros/logos, nunca fatores antigos ausentes no servidor.
+export function substituirFatoresLocais(rows, local = {}) {
+  const metadados = normalizarBaseFatores(local);
+  for (const banco of Object.values(metadados)) banco.fatores = { margem: [], cartao: [] };
+  return mesclarFatoresRemotos(rows, metadados);
+}
+
+const vazio = valor => valor == null || (typeof valor === 'string' && !valor.trim());
+
+// Rascunhos são preservados no editor, mas não bloqueiam a publicação dos completos.
+// Valores preenchidos incorretamente continuam sendo rejeitados pela validação estrita.
+export function prepararPublicacaoFatores(base) {
+  if (!objeto(base)) throw new Error('A base de fatores é inválida.');
+  const copia = JSON.parse(JSON.stringify(base));
+  const pendentes = [];
+  for (const [banco, dados] of Object.entries(copia)) {
+    if (objeto(dados?.tabelas)) {
+      for (const tipo of ['margem', 'cartao']) {
+        if (!Array.isArray(dados.tabelas[tipo] ?? [])) throw new Error(`Lista de tabelas inválida em ${banco}.`);
+        dados.tabelas[tipo] = (dados.tabelas[tipo] || []).filter(tabela => {
+          if (!objeto(tabela) || typeof tabela.nome !== 'string' || !Array.isArray(tabela.prazos)) {
+            throw new Error(`Tabela inválida em ${banco}.`);
+          }
+          if (!tabela.nome.trim() || !tabela.prazos.length) {
+            pendentes.push(`${banco}, ${tipo}: tabela ${tabela.nome || 'sem nome'}`);
+            return false;
+          }
+          tabela.prazos = tabela.prazos.filter(linha => {
+            if (objeto(linha) && (vazio(linha.prazo) || vazio(linha.fator))) {
+              pendentes.push(`${banco}, ${tabela.nome}: prazo ${linha.prazo || 'não informado'}`);
+              return false;
+            }
+            if (objeto(linha) && vazio(linha.taxa)) linha.taxa = '';
+            return true;
+          });
+          return tabela.prazos.length > 0;
+        });
+      }
+    } else if (objeto(dados?.fatores)) {
+      // Arquivos antigos também podem conter rascunhos; datas continuam aceitas na importação.
+      const blocos = Object.hasOwn(dados.fatores, 'margem') || Object.hasOwn(dados.fatores, 'cartao')
+        ? [dados.fatores] : Object.values(dados.fatores);
+      for (const bloco of blocos) for (const tipo of ['margem', 'cartao']) {
+        if (!Array.isArray(bloco?.[tipo] ?? [])) throw new Error(`Lista ${tipo} inválida em ${banco}.`);
+        bloco[tipo] = (bloco[tipo] || []).filter(linha => {
+          if (objeto(linha) && (vazio(linha.prazo) || vazio(linha.fator))) {
+            pendentes.push(`${banco}, ${tipo}: prazo ${linha.prazo || 'não informado'}`);
+            return false;
+          }
+          if (objeto(linha) && vazio(linha.taxa)) linha.taxa = '';
+          return true;
+        });
+      }
+    }
+  }
+  const normalizada = normalizarBaseFatores(copia, { estrito: true });
+  const temLinhas = Object.values(normalizada).some(b => b.fatores.margem.length || b.fatores.cartao.length);
+  if (!temLinhas && pendentes.length) {
+    throw new Error('Nenhum fator completo para enviar. Preencha o nome da tabela, prazo e fator em pelo menos uma linha. A taxa é opcional. Nenhum dado remoto foi alterado.');
+  }
+  return { base: copia, linhas: temLinhas ? prepararFatores(copia) : [], pendentes };
+}
+
+export async function substituirFatoresRemotos(base, { confirmarVazia = false, baseAnterior } = {}) {
+  const { linhas, pendentes } = prepararPublicacaoFatores(base);
+  if (!linhas.length && !confirmarVazia) throw new Error('Esvaziar a base exige confirmação explícita.');
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) throw new Error('Entre novamente antes de enviar a Base de Fatores.');
+  const anteriores = (baseAnterior ?? await carregarFatoresRemotos())
+    .filter(row => String(row.convenio ?? 'INSS').toUpperCase() === 'INSS');
+  const registros = linhas.map(row => ({ ...row, grupo_fator: row.grupo_fator ?? null,
+    publico_assinatura: row.publico_assinatura ?? 'todos', publico_invalidez: row.publico_invalidez ?? 'todos' }));
+  const resposta = await supabase.rpc('substituir_base_fatores', {
+    p_registros: registros, p_base_anterior: anteriores, p_confirmar_vazia: confirmarVazia
+  });
+  if (resposta.error) throw resposta.error;
+  const confirmado = resposta.data;
+  if (!objeto(confirmado) || !Array.isArray(confirmado.registros) ||
+      confirmado.registros.length !== registros.length || confirmado.backup_id == null ||
+      !Number.isInteger(confirmado.removidos) || confirmado.removidos < 0) {
+    throw new Error('O Supabase não confirmou a substituição. Confira o servidor antes de reenviar; seus dados locais foram preservados.');
+  }
+  const porChave = new Map(confirmado.registros.map(row => [identidade(row), row]));
+  if (porChave.size !== registros.length || registros.some(row => {
+    const salvo = porChave.get(identidade(row));
+    return !salvo || parseNumeroCalculo(salvo.fator) !== row.fator ||
+      (salvo.taxa == null ? null : parseNumeroCalculo(salvo.taxa)) !== row.taxa ||
+      (salvo.grupo_fator ?? null) !== row.grupo_fator ||
+      COLUNAS_PUBLICO.some(coluna => salvo[coluna] !== row[coluna]);
+  })) throw new Error('A resposta não confirmou os fatores enviados. Confira o servidor antes de reenviar.');
+  return { linhas: confirmado.registros, quantidade: registros.length, removidos: confirmado.removidos,
+    backupId: confirmado.backup_id, pendentes };
 }
 
 export function mesclarArquivoFatores(importado, local = {}) {

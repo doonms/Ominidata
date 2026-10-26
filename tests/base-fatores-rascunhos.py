@@ -51,7 +51,7 @@ def main():
                             if r.status >= 400 and any(k in r.url for k in ['.css', '.js']) else None)
                     page.on('dialog', lambda d: d.accept())
                     base = f'http://127.0.0.1:{server.server_port}' + prefix
-                    expected_factor = .05 if rows else .04
+                    expected_factor = .04  # Editor mantém rascunhos; servidor só substitui por sincronização explícita.
 
                     def saved():
                         return page.evaluate(f'JSON.parse(localStorage.getItem("{KEY}"))')
@@ -60,7 +60,7 @@ def main():
                         expect(page.locator('#bf-sync-status')).to_contain_text('consultados' if rows else 'não retornou fatores')
                         expect(page.locator('#bf-novoBanco')).to_be_enabled()
                         expect(page.locator('#bf-slBanco')).to_have_value('BancodoBrasil')
-                        expect(page.locator('#bf-listaPrazosMargem > .bf-table-card')).to_have_count(2 if rows else 1)
+                        expect(page.locator('#bf-listaPrazosMargem > .bf-table-card')).to_have_count(1)
                         expect(page.locator('.bf-term-row.is-pending')).to_have_count(1)
                         expect(page.locator('input.bf-prazo-pendente')).to_have_count(1)
                         state = saved()['BancodoBrasil']
@@ -91,6 +91,9 @@ def main():
                     assert re.search(r'prazo|pendente|rascunho', rejection, re.I), rejection
                     assert not page.evaluate('window.__qaWrites.length')
 
+                    # Sem fatores publicados, usa fallback local somente se a leitura realmente falhar.
+                    if not rows:
+                        page.add_init_script("if(location.pathname.endsWith('/simulador.html'))window.__qaFalhaLeitura=true;")
                     page.goto(base + '/pages/simulador.html')
                     expect(page.locator('#sim-base-status')).to_contain_text('consultados' if rows else 'navegador')
                     page.locator('#slBanco').select_option('BancodoBrasil')
@@ -125,7 +128,7 @@ def main():
                         const { prepararFatores } = await import('../js/api/baseFatoresApi.js');
                         return prepararFatores(JSON.parse(localStorage.getItem(key)));
                     }""", KEY)
-                    assert len(validation) == (3 if rows else 2)
+                    assert len(validation) == 2
                     assert next(r for r in validation if r['prazo'] == 90)['fator'] == .03
                     page.reload()
                     expect(page.locator('#bf-sync-status')).to_contain_text('consultados' if rows else 'não retornou fatores')

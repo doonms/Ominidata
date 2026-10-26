@@ -535,6 +535,18 @@ button.small {
   gap: 3px;
 }
 
+.base-fatores-page .bf-sync-bar > .bf-sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 1 540px;
+}
+
+.base-fatores-page .bf-sync-actions button {
+  white-space: normal;
+}
+
 .base-fatores-page .bf-sync-bar strong {
   color: var(--bf-text);
   font-size: 0.88rem;
@@ -1233,6 +1245,16 @@ button.small {
   .base-fatores-page .bf-sync-button {
     align-self: stretch;
     justify-content: center;
+  }
+
+  .base-fatores-page .bf-sync-bar > .bf-sync-actions {
+    flex: none;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .base-fatores-page .bf-sync-actions button {
+    flex: 1 1 180px;
   }
 
   .base-fatores-page .bf-workspace {

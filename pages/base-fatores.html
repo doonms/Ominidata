@@ -32,9 +32,13 @@
     <section class="bf-sync-bar" aria-label="Sincronização da base">
       <div>
         <strong>Sincronização da base</strong>
-        <span id="bf-sync-status" role="status" aria-live="polite">Importar e salvar mantêm os dados neste navegador. Envie o JSON para publicar os fatores no Supabase.</span>
+        <span id="bf-sync-status" role="status" aria-live="polite">Salve localmente, consulte o Supabase ou publique a base atual sem exportar. O envio por arquivo também continua disponível.</span>
       </div>
-      <button id="uploadBaseBtn" class="secondary bf-sync-button">Enviar base ao Supabase</button>
+      <div class="bf-sync-actions">
+        <button id="bf-sincronizar" class="secondary" type="button" title="Carrega do servidor e substitui as tabelas locais, após confirmação">Sincronizar do Supabase</button>
+        <button id="bf-enviarDireto" class="primary" type="button" title="Publica o cadastro atual, incluindo exclusões, com backup remoto">Enviar base atual</button>
+        <button id="uploadBaseBtn" class="secondary bf-sync-button" type="button" title="Envio aditivo: mantém registros do servidor ausentes no arquivo">Enviar arquivo JSON</button>
+      </div>
       <input type="file" id="uploadBaseFile" accept=".json" style="display:none" />
     </section>
 

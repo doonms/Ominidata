@@ -1,5 +1,5 @@
-import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
-import { carregarFatoresRemotos, mesclarFatoresRemotos, mensagemErroFatores } from '../api/baseFatoresApi.js';
+import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_INSS_KEY, BASE_INSS_FALLBACKS } from '../config/storageKeys.js';
+import { carregarFatoresRemotos, substituirFatoresLocais, mensagemErroFatores, CACHE_FATORES_REMOTOS } from '../api/baseFatoresApi.js';
 import { carregarBaseInss } from '../api/baseInssApi.js';
 import { parseNumeroCalculo, formatarFatorCalculo, formatarMoedaCalculo } from './calculadora-fator.js';
 import { calcularCondicaoSimulacao, formatarTaxaSimulacao as formatarTaxa } from './calculo-simulacao.js';
@@ -8,7 +8,6 @@ import { chaveBanco, definirLogo, initPesquisaBancos, listaRegras, PRODUTOS } fr
 import { prazosPorIdade } from '../filtros/rapido.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
-import { criarCadastroTabelas } from './cadastro-tabelas-fatores.js';
 import { tabelaAtendePublico } from './publico-tabelas.js';
 import { initPesquisaOutros } from './pesquisa-outros-convenios.js?v=20261021-origem-2';
 
@@ -59,6 +58,10 @@ export async function initSimulador() {
   const modoLiberado = el('modoLiberado');
   const status = el('sim-status');
   let base = lerCache([BASE_FATORES_KEY, ...BASE_FATORES_FALLBACKS], comoFatores);
+  try {
+    const remotoSalvo = JSON.parse(localStorage.getItem(CACHE_FATORES_REMOTOS) || 'null');
+    if (Array.isArray(remotoSalvo)) base = substituirFatoresLocais(remotoSalvo, base);
+  } catch { /* Sem cache remoto válido, mantém a base local para uso offline. */ }
   let regras = lerCache([BASE_INSS_KEY, ...BASE_INSS_FALLBACKS], listaRegras);
   let bancos = [];
   let perfilSelecionado = null;
@@ -477,14 +480,16 @@ export async function initSimulador() {
   ]);
   if (!root.isConnected) return;
   const fonte = el('sim-base-status');
-  if (fatoresRemotos.status === 'fulfilled' && fatoresRemotos.value.length) {
-    base = mesclarFatoresRemotos(fatoresRemotos.value, base);
+  if (fatoresRemotos.status === 'fulfilled') {
+    base = substituirFatoresLocais(fatoresRemotos.value, base);
     try {
-      preservarBackupFatoresDatados(readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS));
-      writeToStorage(BASE_FATORES_KEY, criarCadastroTabelas(base, readFromStorage(BASE_FATORES_KEY, BASE_FATORES_FALLBACKS) || {}), BASE_FATORES_MIRRORS);
+      // Cache remoto separado: visitar o simulador nunca apaga rascunhos do editor.
+      localStorage.setItem(CACHE_FATORES_REMOTOS, JSON.stringify(fatoresRemotos.value));
     }
     catch (error) { console.warn('Não foi possível atualizar o cache dos fatores:', error); }
-    if (fonte) fonte.textContent = 'Fatores consultados no Supabase; dados locais também foram preservados.';
+    if (fonte) fonte.textContent = fatoresRemotos.value.length
+      ? 'Fatores consultados no Supabase. Tabelas removidas não são recuperadas do navegador.'
+      : 'O Supabase não retornou fatores publicados. O cálculo manual continua disponível; rascunhos locais não foram alterados.';
   } else if (fonte) {
     const detalhe = fatoresRemotos.status === 'rejected'
       ? mensagemErroFatores(fatoresRemotos.reason)

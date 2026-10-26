@@ -1,6 +1,7 @@
 import { BASE_FATORES_KEY, BASE_FATORES_FALLBACKS, BASE_FATORES_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
 import { carregarFatoresRemotos, enviarFatoresRemotos, mesclarFatoresRemotos,
-  mesclarArquivoFatores, mensagemErroFatores, prepararFatores } from '../api/baseFatoresApi.js';
+  mesclarArquivoFatores, mensagemErroFatores, prepararPublicacaoFatores, substituirFatoresRemotos,
+  substituirFatoresLocais, CACHE_FATORES_REMOTOS } from '../api/baseFatoresApi.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
 import { criarCadastroTabelas, temPrazosPendentes } from './cadastro-tabelas-fatores.js';
@@ -16,6 +17,25 @@ let state = {
   filtroBanco: ""
 };
 let versaoLocal = 0;
+const SYNC_KEY = 'ominidata_base_fatores_sync_v1';
+let operacaoRemota = false;
+let ultimaBaseRemota = null;
+
+function temAlteracoesLocais() {
+  const ultima = localStorage.getItem(SYNC_KEY);
+  // Cadastros antigos são rascunhos, não cache descartável.
+  return ultima == null ? Object.keys(state.bancos).length > 0 : ultima !== JSON.stringify(state.bancos);
+}
+
+function marcarSincronizada() { localStorage.setItem(SYNC_KEY, JSON.stringify(state.bancos)); }
+
+function bloquearSincronizacao(ativo) {
+  operacaoRemota = ativo;
+  ['uploadBaseBtn', 'bf-enviarDireto', 'bf-sincronizar'].forEach(id => {
+    const botao = document.getElementById(id);
+    if (botao) botao.disabled = ativo;
+  });
+}
 
 function informarSincronizacao(texto, erro = false) {
   const status = document.getElementById('bf-sync-status');
@@ -65,28 +85,43 @@ async function readJsonFile(file) {
 
 // ⚙️ Função para enviar os dados da base de fatores para o Supabase
 async function uploadBaseFatores(file, els) {
-  const botao = document.getElementById('uploadBaseBtn');
+  if (operacaoRemota) return;
   try {
     if (!file) {
       alert('Selecione um arquivo JSON para enviar.');
       return;
     }
 
-    if (botao) botao.disabled = true;
+    bloquearSincronizacao(true);
     const baseFatores = await readJsonFile(file);
-    prepararFatores(baseFatores);
+    const publicacao = prepararPublicacaoFatores(baseFatores);
+    if (!publicacao.linhas.length) throw new Error('O arquivo não contém fatores completos para enviar.');
+    if (publicacao.pendentes.length && !confirm(`${publicacao.pendentes.length} rascunho(s) incompleto(s) não serão enviados. Enviar somente os ${publicacao.linhas.length} fatores completos?`)) return;
     guardarBackupLocal();
-    state.bancos = criarCadastroTabelas(mesclarArquivoFatores(baseFatores, state.bancos), state.bancos);
+    state.bancos = criarCadastroTabelas(mesclarArquivoFatores(publicacao.base, state.bancos), state.bancos);
+    // Mantém os rascunhos do cadastro original, sem publicá-los.
+    for (const [nome, banco] of Object.entries(baseFatores)) {
+      if (!banco.tabelas || !state.bancos[nome]) continue;
+      for (const tipo of ['margem', 'cartao']) for (const tabela of banco.tabelas[tipo] || []) {
+        let destino = state.bancos[nome].tabelas[tipo].find(t => t.nome === tabela.nome);
+        if (!destino) { destino = { ...tabela, prazos: [] }; state.bancos[nome].tabelas[tipo].push(destino); }
+        for (const linha of tabela.prazos) {
+          if (!destino.prazos.some(p => String(p.prazo) === String(linha.prazo))) destino.prazos.push({ ...linha });
+        }
+      }
+    }
     saveState();
     state.filtroBanco = '';
     if (els.buscaBanco) els.buscaBanco.value = '';
     syncBancoSelecionado(els, renderBancoSelect(els));
     selectBanco(els);
     informarSincronizacao('Arquivo preservado neste navegador. Enviando fatores ao Supabase…');
-    const resultado = await enviarFatoresRemotos(baseFatores);
+    const versaoEnvio = versaoLocal;
+    const resultado = await enviarFatoresRemotos(publicacao.base);
     if (!els.slBanco.isConnected) return;
-    renderBaseFatores(resultado.linhas, els);
-    informarSincronizacao(`${resultado.quantidade} fatores confirmados no Supabase: ${resultado.inseridos} novos, ${resultado.atualizados} atualizados, ${resultado.mantidos} já estavam iguais. Os demais registros, seguros e logos foram mantidos.`);
+    if (versaoLocal === versaoEnvio) renderBaseFatores(resultado.linhas, els);
+    ultimaBaseRemota = null;
+    informarSincronizacao(`${resultado.quantidade} fatores confirmados no Supabase: ${resultado.inseridos} novos, ${resultado.atualizados} atualizados, ${resultado.mantidos} já estavam iguais. Os demais registros, seguros e logos foram mantidos.${publicacao.pendentes.length ? ` ${publicacao.pendentes.length} rascunho(s) incompleto(s) continuam somente neste navegador.` : ''}`);
     alert(`✅ ${resultado.quantidade} fatores enviados/atualizados e confirmados no Supabase. Os demais registros foram mantidos.`);
   } catch (error) {
     console.error('Erro ao enviar base:', error);
@@ -94,11 +129,38 @@ async function uploadBaseFatores(file, els) {
     if (els.slBanco.isConnected) informarSincronizacao(mensagem, true);
     alert(mensagem);
   } finally {
-    if (botao) botao.disabled = false;
+    if (els.slBanco.isConnected) bloquearSincronizacao(false);
   }
 }
 
+async function enviarBaseDireta(els) {
+  if (operacaoRemota) return;
+  try {
+    const publicacao = prepararPublicacaoFatores(state.bancos);
+    const aviso = publicacao.pendentes.length
+      ? `\n${publicacao.pendentes.length} rascunho(s) incompleto(s) ficarão somente neste navegador e não farão parte da base publicada.` : '';
+    if (!confirm(`Enviar ${publicacao.linhas.length} fatores diretamente ao Supabase?\nIsso substituirá a base INSS publicada: tabelas e prazos ausentes serão removidos do servidor. Será guardado um backup remoto.${aviso}${!publicacao.linhas.length ? '\nATENÇÃO: a base INSS publicada ficará vazia.' : ''}`)) return;
+    bloquearSincronizacao(true);
+    guardarBackupLocal();
+    const baseEnvio = JSON.parse(JSON.stringify(state.bancos));
+    const versaoEnvio = versaoLocal;
+    informarSincronizacao('Enviando a base atual ao Supabase, incluindo as exclusões…');
+    const resultado = await substituirFatoresRemotos(baseEnvio, {
+      confirmarVazia: !publicacao.linhas.length, baseAnterior: ultimaBaseRemota ?? undefined
+    });
+    if (!els.slBanco.isConnected) return;
+    ultimaBaseRemota = resultado.linhas;
+    localStorage.setItem(CACHE_FATORES_REMOTOS, JSON.stringify(resultado.linhas));
+    if (versaoLocal === versaoEnvio && !resultado.pendentes.length) marcarSincronizada();
+    informarSincronizacao(`${resultado.quantidade} fatores publicados; ${resultado.removidos} registros antigos removidos. Backup remoto nº ${resultado.backupId}.${resultado.pendentes.length ? ` ${resultado.pendentes.length} rascunho(s) continuam somente neste navegador.` : ''}${versaoLocal !== versaoEnvio ? ' Alterações feitas durante o envio ainda não foram publicadas.' : ''}`);
+  } catch (error) {
+    if (els.slBanco.isConnected) informarSincronizacao(`Não foi possível confirmar o envio. ${mensagemErroFatores(error)}`, true);
+  } finally { if (els.slBanco.isConnected) bloquearSincronizacao(false); }
+}
+
 export function initBaseFatores(cfg = {}) {
+  ultimaBaseRemota = null;
+  operacaoRemota = false;
   const els = mapEls(cfg.els ?? DEFAULT_SELECTORS);
   const uploadBtn = document.getElementById('uploadBaseBtn');
   const uploadInput = document.getElementById('uploadBaseFile');
@@ -106,7 +168,7 @@ export function initBaseFatores(cfg = {}) {
   if (!loadState()) {
     // Sem backup confirmado não sobrescrevemos a base antiga.
     if (els.btnExportar) els.btnExportar.onclick = exportarJSON;
-    [uploadBtn, els.btnSalvar, els.btnNovo, els.btnRemover, els.btnImportar].forEach(botao => {
+    [uploadBtn, document.getElementById('bf-enviarDireto'), document.getElementById('bf-sincronizar'), els.btnSalvar, els.btnNovo, els.btnRemover, els.btnImportar].forEach(botao => {
       if (botao) botao.disabled = true;
     });
     return;
@@ -122,6 +184,11 @@ export function initBaseFatores(cfg = {}) {
       event.target.value = '';
     };
   }
+
+  const enviarDireto = document.getElementById('bf-enviarDireto');
+  const sincronizar = document.getElementById('bf-sincronizar');
+  if (enviarDireto) enviarDireto.onclick = () => enviarBaseDireta(els);
+  if (sincronizar) sincronizar.onclick = () => carregarBaseFatoresRemota(els, true);
 
   // preencher select de bancos
   els.editorTabelas = initEditorTabelas({
@@ -198,6 +265,7 @@ function loadState() {
 
 function saveState() {
   writeToStorage(state.keyStorage, state.bancos, BASE_FATORES_MIRRORS);
+  localStorage.setItem(SYNC_KEY, 'pendente');
   state.lastSave = new Date();
   versaoLocal++;
 }
@@ -319,7 +387,7 @@ function novoBanco(els) {
 function toggleMargem(els) {
   const ativo = els.swMargem.checked;
   const b = getBancoAtual();
-  if (b) {
+  if (b && b.fazMargem !== ativo) {
     b.fazMargem = ativo;
     saveState();
   }
@@ -330,7 +398,7 @@ function toggleMargem(els) {
 function toggleCartao(els) {
   const ativo = els.swCartao.checked;
   const b = getBancoAtual();
-  if (b) {
+  if (b && b.fazCartao !== ativo) {
     b.fazCartao = ativo;
     saveState();
   }
@@ -490,8 +558,8 @@ function exportarJSON() {
 
 function salvarTudo() {
   saveState();
-  informarSincronizacao('Alterações salvas neste navegador. Para publicar: exporte o JSON e use “Enviar base ao Supabase”.');
-  alert("Salvo neste navegador. Para publicar, exporte o JSON e use Enviar base ao Supabase.");
+  informarSincronizacao('Alterações salvas neste navegador. Use “Enviar base atual” para publicar diretamente, ou mantenha o envio por arquivo JSON.');
+  alert("Salvo neste navegador. Para publicar, use Enviar base atual ou o envio por arquivo JSON.");
 }
 
 function getBancoAtual() { return state.bancos[state.bancoAtual]; }
@@ -502,26 +570,37 @@ function getBancosFiltrados() {
   return nomes.filter(nome => normalizarTexto(nome).includes(state.filtroBanco));
 }
 
-async function carregarBaseFatoresRemota(els) {
+async function carregarBaseFatoresRemota(els, manual = false) {
+  if (operacaoRemota) return;
+  if (manual && !confirm('Carregar os fatores publicados no Supabase? Isso substituirá as tabelas e prazos deste navegador, inclusive rascunhos e exclusões não enviados. Seguros e logos locais serão mantidos. Será guardado um backup local.')) return;
+  bloquearSincronizacao(true);
   const versaoInicial = versaoLocal;
   informarSincronizacao('Consultando fatores do Supabase… Os dados locais foram mantidos.');
   try {
     const baseFatores = await carregarFatoresRemotos();
     if (!els.slBanco.isConnected) return;
+    ultimaBaseRemota = baseFatores;
     if (versaoLocal !== versaoInicial) {
       informarSincronizacao('Suas alterações locais foram mantidas; a consulta em segundo plano não as sobrescreveu.');
       return;
     }
-    if (!baseFatores.length) {
-      informarSincronizacao('O Supabase não retornou fatores visíveis para esta sessão. Dados locais preservados; confira uploads e permissões de leitura.');
+    if (!manual && temAlteracoesLocais()) {
+      informarSincronizacao(`${baseFatores.length ? `${baseFatores.length} fatores consultados` : 'O Supabase não retornou fatores'}. Cadastro local preservado para não trazer de volta tabelas apagadas. Use “Enviar base atual” para publicar ou “Sincronizar do Supabase” para substituir o cadastro local.`);
       return;
     }
-    renderBaseFatores(baseFatores, els);
-    informarSincronizacao(`${baseFatores.length} fatores consultados no Supabase. Seguros, logos e registros locais foram preservados.`);
+    const bancos = criarCadastroTabelas(substituirFatoresLocais(baseFatores, state.bancos));
+    guardarBackupLocal();
+    state.bancos = bancos;
+    saveState();
+    syncBancoSelecionado(els, renderBancoSelect(els));
+    selectBanco(els);
+    marcarSincronizada();
+    localStorage.setItem(CACHE_FATORES_REMOTOS, JSON.stringify(baseFatores));
+    informarSincronizacao(`${baseFatores.length} fatores consultados no Supabase. Tabelas e prazos sincronizados sem recuperar registros apagados; seguros e logos locais mantidos.`);
   } catch (err) {
     console.error('Erro inesperado ao carregar base do Supabase:', err);
     if (els.slBanco.isConnected) informarSincronizacao(`Dados locais preservados. ${mensagemErroFatores(err)}`, true);
-  }
+  } finally { if (els.slBanco.isConnected) bloquearSincronizacao(false); }
 }
 
 function novaEstrutura() {
