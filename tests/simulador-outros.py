@@ -33,7 +33,14 @@ BASE=[
 STUB=QA['STUB'].replace("const rows = table === 'base_inss'", """
         if(table === 'base_outros_convenios')
           return Promise.resolve({data:window.__qaOutros,error:null}).then(resolve,reject);
+        if(table === 'base_fatores')
+          return Promise.resolve({data:window.__qaFatoresRemotos,error:null}).then(resolve,reject);
         const rows = table === 'base_inss'""")
+REMOTOS=[]
+for nome,banco in QA['FATORES'].items():
+ for bloco in banco['fatores'].values():
+  for tipo,linhas in bloco.items():
+   for linha in linhas:REMOTOS.append(dict(linha,banco=nome,convenio='INSS',tipo=tipo,id=len(REMOTOS)+1))
 
 
 def main():
@@ -47,7 +54,7 @@ def main():
     ctx.route('**/js/supa/supabaseClient.js',lambda r:r.fulfill(content_type='application/javascript',body=STUB))
     ctx.route('https://**/*',lambda r:r.abort())
     rows=[dict(banco_id=b['banco_id'],nome=b['nome'],suspenso=b.get('suspenso',False),dados=b) for b in BASE]
-    ctx.add_init_script('window.__qaRegras='+json.dumps(QA['REGRAS'])+';window.__qaOutros='+json.dumps(rows)+';'
+    ctx.add_init_script('window.__qaRegras='+json.dumps(QA['REGRAS'])+';window.__qaOutros='+json.dumps(rows)+';window.__qaFatoresRemotos='+json.dumps(REMOTOS)+';'
       'sessionStorage.setItem("ominidata_user",JSON.stringify({email:"dominicplf@gmail.com"}));'
       'localStorage.setItem("ominidata_base_inss_v1",JSON.stringify(window.__qaRegras));'
       'localStorage.setItem("ominidata_base_fatores_v1",'+json.dumps(json.dumps(QA['FATORES']))+');')

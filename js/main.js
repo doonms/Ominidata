@@ -3,6 +3,7 @@ import { renderPrazosInline, renderInvalidezInline, renderLoasInline, renderOutr
 import { KEY, esc, parseRange, normalize, lerStorage, salvarStorage, novoBancoPadrao } from './components/util.js';
 import { supabase } from './supa/supabaseClient.js';
 import { getLogoSrc, getLogoFallbackAttr } from './utils/logo.js';
+import { enviarBaseInss, mensagemErroInss } from './api/baseInssApi.js';
 
 let listEl;
 let addBtn;
@@ -21,45 +22,31 @@ async function readJsonFile(file) {
   return JSON.parse(text);
 }
 
-function gerarBancoId(nome) {
-  if (!nome) return '';
-  const primeira = nome.toString().trim().split(/\s+/)[0];
-  const normalizado = primeira
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toLowerCase();
-  return normalizado.length <= 3 ? normalizado : normalizado.slice(0, 3);
-}
-
+let envioInssEmAndamento = false;
 async function uploadBaseInss(file) {
+  if (envioInssEmAndamento) return;
+  const botao = uploadBaseBtn;
   try {
     if (!file) {
       alert('Selecione um arquivo JSON para enviar.');
       return;
     }
 
+    envioInssEmAndamento = true;
+    if (botao) botao.disabled = true;
     const json = await readJsonFile(file);
-    const registros = Object.entries(json || {}).map(([nomeBanco, dadosBanco]) => ({
-      banco_id: gerarBancoId(nomeBanco),
-      nome: nomeBanco,
-      suspenso: dadosBanco?.status_suspenso ?? false,
-      dados: dadosBanco
-    }));
-
-    if (!registros.length) {
-      alert('Arquivo vazio ou inválido.');
-      return;
-    }
-
-    await supabase.from('base_inss').delete().neq('banco_id', '');
-    const { error } = await supabase.from('base_inss').upsert(registros, { onConflict: 'banco_id' });
-    if (error) throw error;
-
-    alert('✅ Base INSS enviada com sucesso!');
-    await carregarBaseInssRemota();
+    const resultado = await enviarBaseInss(json, { baseLocal: bancos,
+      antesDeEnviar: ({ quantidade, removidos }) => confirm(`Publicar ${quantidade} bancos na Base INSS? ${removidos} bancos ausentes no arquivo serão removidos depois da gravação. Um backup será guardado neste navegador.`)
+    });
+    if (!resultado) return;
+    alert(`✅ ${resultado.quantidade} bancos confirmados na Base INSS. ${resultado.removidos} bancos antigos removidos.`);
+    if (listEl?.isConnected && uploadBaseBtn === botao) await carregarBaseInssRemota();
   } catch (err) {
     console.error('Erro ao enviar base INSS:', err);
-    alert('❌ Erro ao enviar base INSS.');
+    alert(`❌ Não foi possível confirmar o envio da Base INSS. ${mensagemErroInss(err)}`);
+  } finally {
+    envioInssEmAndamento = false;
+    if (botao) botao.disabled = false;
   }
 }
 
@@ -79,7 +66,9 @@ async function carregarBaseInssRemota() {
       const dados = row?.dados && typeof row.dados === 'object' ? row.dados : {};
       return normalize({
         ...dados,
+        banco_id: row?.banco_id ?? dados.banco_id,
         nome: dados.nome ?? row?.nome ?? '',
+        suspenso: row?.suspenso ?? dados.suspenso ?? dados.status_suspenso ?? false,
         status_suspenso: dados.status_suspenso ?? row?.suspenso ?? false
       });
     });

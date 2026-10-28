@@ -14,6 +14,8 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
   const status = el('sim-multi-status');
   const gerar = el('sim-multi-gerar');
   let selecionadas = new Set();
+  let contextoAnterior = '';
+  const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   function avisar(texto, erro = false) {
     status.textContent = texto;
@@ -23,11 +25,36 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
     resultados.hidden = true;
     cards.replaceChildren();
     avisar('Escolha as opções e gere a comparação com o valor ou parcela informado acima.');
+    contador();
   }
   function contador() {
-    const quantidade = getContexto().manual ? manuais.children.length : selecionadas.size;
+    const ctx = getContexto();
+    const quantidade = ctx.manual ? manuais.children.length : selecionadas.size;
     gerar.textContent = `Gerar ${quantidade} simulaç${quantidade === 1 ? 'ão' : 'ões'}`;
     gerar.disabled = quantidade === 0;
+    el('sim-multi-selecionadas').textContent = `${quantidade} selecionada${quantidade === 1 ? '' : 's'}`;
+    el('sim-multi-context-bank').textContent = ctx.nomeBanco || 'Simulação manual';
+    const informado = parseNumeroCalculo(ctx.informado);
+    el('sim-multi-context-entry').textContent = informado > 0
+      ? `${ctx.porParcela ? 'Valor desejado' : 'Parcela / margem'}: ${moeda(informado)} · ${ctx.manual ? 'Condições manuais' : 'Tabelas cadastradas'}`
+      : 'Informe o valor ou parcela acima para comparar as condições.';
+  }
+
+  function filtrar() {
+    const termo = normalizar(el('sim-multi-busca').value.trim());
+    const prazo = el('sim-multi-prazo').value;
+    let visiveis = 0;
+    lista.querySelectorAll('.sim-multi-choice').forEach(label => {
+      label.hidden = !!((prazo && label.dataset.prazo !== prazo) || !normalizar(label.textContent).includes(termo));
+      if (!label.hidden) visiveis++;
+    });
+    lista.querySelectorAll('.sim-multi-group').forEach(group => {
+      group.hidden = ![...group.querySelectorAll('.sim-multi-choice')].some(label => !label.hidden);
+    });
+    const total = lista.querySelectorAll('.sim-multi-choice').length;
+    el('sim-multi-visiveis').textContent = `${visiveis} de ${total} condições`;
+    el('sim-multi-sem-busca').hidden = !total || visiveis > 0;
+    el('sim-multi-todas').disabled = ![...lista.querySelectorAll('input:not(:disabled)')].some(check => !check.closest('label').hidden);
   }
   function chave(ctx, item, indice) {
     return JSON.stringify([ctx.banco, ctx.operacao, indice, item.prazo, item.plano || item.tabela || '']);
@@ -36,6 +63,10 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
     const ctx = getContexto();
     const row = document.createElement('div');
     row.className = 'sim-multi-manual-row';
+    const heading = document.createElement('strong');
+    heading.className = 'sim-multi-manual-title';
+    heading.textContent = `Condição manual ${manuais.children.length + 1}`;
+    row.appendChild(heading);
     for (const [nome, rotulo, valor, placeholder] of [
       ['prazo', 'Prazo (opcional)', ctx.prazo, 'Ex.: 84'],
       ['fator', 'Fator', ctx.fator, 'Ex.: 0,0234'],
@@ -62,7 +93,11 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
     remover.type = 'button';
     remover.className = 'secondary';
     remover.textContent = 'Remover opção';
-    remover.addEventListener('click', () => { row.remove(); invalidar(); contador(); });
+    remover.addEventListener('click', () => {
+      row.remove();
+      [...manuais.children].forEach((item, indice) => { item.querySelector('.sim-multi-manual-title').textContent = `Condição manual ${indice + 1}`; });
+      invalidar(); contador();
+    });
     row.appendChild(remover);
     manuais.appendChild(row);
     invalidar();
@@ -70,13 +105,19 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
   }
   function atualizar() {
     const ctx = getContexto();
+    const contexto = JSON.stringify([ctx.banco, ctx.operacao, ctx.manual]);
+    if (contexto !== contextoAnterior) {
+      el('sim-multi-busca').value = '';
+      el('sim-multi-prazo').value = '';
+      contextoAnterior = contexto;
+    }
     invalidar();
     el('sim-multi-cadastradas').hidden = ctx.manual;
     el('sim-multi-manual').hidden = !ctx.manual;
     if (ctx.manual) {
       if (painel.open && !manuais.children.length) adicionarManual();
     } else {
-      const disponiveis = new Set();
+      const disponiveis = new Set(), grupos = new Map();
       lista.replaceChildren();
       ctx.opcoes.forEach((item, indice) => {
         const key = chave(ctx, item, indice);
@@ -84,6 +125,7 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
         if (valido) disponiveis.add(key);
         const label = document.createElement('label');
         label.className = 'sim-multi-choice';
+        label.dataset.prazo = String(item.prazo);
         const check = document.createElement('input');
         check.type = 'checkbox';
         check.value = key;
@@ -101,11 +143,36 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
           invalidar();
           contador();
         });
-        lista.appendChild(label);
+        const grupoPrazo = String(item.prazo);
+        if (!grupos.has(grupoPrazo)) {
+          const grupo = document.createElement('section');
+          grupo.className = 'sim-multi-group';
+          const cabecalho = document.createElement('div'); cabecalho.className = 'sim-multi-group-heading';
+          const tituloGrupo = document.createElement('strong'); tituloGrupo.textContent = `${item.prazo} parcelas`;
+          const selecionarPrazo = document.createElement('button'); selecionarPrazo.type = 'button';
+          selecionarPrazo.className = 'secondary'; selecionarPrazo.textContent = 'Selecionar este prazo';
+          selecionarPrazo.setAttribute('aria-label', `Selecionar tabelas do prazo ${item.prazo}`);
+          const opcoes = document.createElement('div'); opcoes.className = 'sim-multi-group-options';
+          selecionarPrazo.addEventListener('click', () => {
+            opcoes.querySelectorAll('input:not(:disabled)').forEach(input => {
+              if (input.closest('label').hidden) return;
+              input.checked = true; selecionadas.add(input.value);
+            });
+            invalidar(); contador();
+          });
+          cabecalho.append(tituloGrupo, selecionarPrazo); grupo.append(cabecalho, opcoes);
+          grupos.set(grupoPrazo, opcoes); lista.appendChild(grupo);
+        }
+        grupos.get(grupoPrazo).appendChild(label);
       });
       selecionadas = new Set([...selecionadas].filter(key => disponiveis.has(key)));
       el('sim-multi-vazio').hidden = ctx.opcoes.length > 0;
       el('sim-multi-todas').disabled = disponiveis.size === 0;
+      const filtroPrazo = el('sim-multi-prazo'), prazoAnterior = filtroPrazo.value;
+      filtroPrazo.replaceChildren(new Option('Todos os prazos', ''));
+      grupos.forEach((_grupo, prazo) => filtroPrazo.add(new Option(`${prazo} parcelas`, prazo)));
+      filtroPrazo.value = grupos.has(prazoAnterior) ? prazoAnterior : '';
+      filtrar();
     }
     contador();
   }
@@ -114,6 +181,14 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
     const campo = id => card.querySelector(`#${id}`);
     card.hidden = false;
     card.classList.add('sim-multi-card');
+    const identificacao = document.createElement('div');
+    identificacao.className = 'sim-multi-card-condition';
+    const nomeCondicao = document.createElement('strong');
+    nomeCondicao.textContent = item.plano || item.tabela || 'Condição sem nome';
+    const prazoCondicao = document.createElement('span');
+    prazoCondicao.textContent = item.prazo ? `${item.prazo} parcelas` : 'Prazo não informado';
+    identificacao.append(nomeCondicao, prazoCondicao);
+    card.querySelector('.sim-result-title').after(identificacao);
     card.setAttribute('aria-label', `Simulação ${indice + 1}`);
     card.querySelector('.sim-result-title strong').textContent = `Opção ${indice + 1}`;
     campo('resBancoNome').textContent = ctx.nomeBanco || 'Simulação manual';
@@ -171,6 +246,7 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
     cards.replaceChildren(fragment);
     el('sim-result').hidden = true;
     el('sim-multi-quantidade').textContent = `${calculadas.length} simulaç${calculadas.length === 1 ? 'ão' : 'ões'}`;
+    el('sim-multi-result-context').textContent = `${ctx.nomeBanco || 'Simulação manual'} · ${ctx.porParcela ? 'Valor desejado' : 'Parcela / margem'} ${moeda(parseNumeroCalculo(ctx.informado))}${ctx.seguro ? ` · Seguro: ${ctx.seguro.nome || 'selecionado'}` : ''}`;
     resultados.hidden = false;
     avisar('Comparação gerada com o mesmo valor de entrada e o seguro selecionado, quando houver.');
   }
@@ -179,9 +255,14 @@ export function initMultiplasSimulacoes({ root, getContexto }) {
   });
   el('sim-multi-adicionar').addEventListener('click', adicionarManual);
   el('sim-multi-todas').addEventListener('click', () => {
-    lista.querySelectorAll('input:not(:disabled)').forEach(check => { check.checked = true; selecionadas.add(check.value); });
+    lista.querySelectorAll('input:not(:disabled)').forEach(check => {
+      if (check.closest('label').hidden) return;
+      check.checked = true; selecionadas.add(check.value);
+    });
     invalidar(); contador();
   });
+  el('sim-multi-busca').addEventListener('input', filtrar);
+  el('sim-multi-prazo').addEventListener('change', filtrar);
   el('sim-multi-limpar').addEventListener('click', () => {
     selecionadas.clear();
     lista.querySelectorAll('input').forEach(check => { check.checked = false; });

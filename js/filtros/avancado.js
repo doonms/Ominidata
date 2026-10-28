@@ -388,7 +388,8 @@ function secPrazosBanco(b, f){
 }
 
 // ---------- Render ----------
-export function renderDetalhesBanco(b, f = {}){
+export function renderDetalhesBanco(b, f = {}, { incluirObservacoesGerais = false } = {}){
+  const observacoes = incluirObservacoesGerais ? String(b.observacoes ?? '').trim() : '';
   const body = [
     secOperacoes(b),
     secPerfis(b),
@@ -398,7 +399,8 @@ export function renderDetalhesBanco(b, f = {}){
     secNaoAssina(b),
     secContrato60(b),
     secExtras(b),
-    secPrazosBanco(b, f)
+    secPrazosBanco(b, f),
+    observacoes ? `<div class="subblock sim-bank-general-observations"><div class="subttl">Observações gerais</div><div class="sim-bank-general-text">${esc(observacoes)}</div></div>` : ''
   ].filter(Boolean).join('');
 
   return body || '<div class="muted">Nenhuma informação detalhada disponível.</div>';

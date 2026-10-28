@@ -4,6 +4,7 @@ import { carregarBaseInss } from '../api/baseInssApi.js';
 import { parseNumeroCalculo, formatarFatorCalculo, formatarMoedaCalculo } from './calculadora-fator.js';
 import { calcularCondicaoSimulacao, formatarTaxaSimulacao as formatarTaxa } from './calculo-simulacao.js';
 import { initMultiplasSimulacoes } from './multiplas-simulacoes.js';
+import { initSelecaoCondicoes } from './selecao-condicoes-ui.js';
 import { chaveBanco, definirLogo, initPesquisaBancos, listaRegras, PRODUTOS } from './pesquisa-bancos.js';
 import { prazosPorIdade } from '../filtros/rapido.js';
 import { initCalculadoraFator } from './calculadora-fator-ui.js';
@@ -67,6 +68,7 @@ export async function initSimulador() {
   let perfilSelecionado = null;
   let fatorDigitado = '';
   let multiplas;
+  let selecaoCondicoes;
   let consultaOutrosAtiva = false;
   let bancoOutros = null;
   const contextosConsulta = {};
@@ -133,11 +135,13 @@ export async function initSimulador() {
     if (consultaOutrosAtiva) {
       opcoes(banco,bancoOutros ? [{label: bancoOutros.nome + ' · ' + bancoOutros.convenio, value: bancoOutros.valor}] : [],'Escolher banco pela pesquisa');
       banco.value=bancoOutros?.valor || '';
+      selecaoCondicoes?.atualizar();
       return;
     }
     opcoes(banco, bancos.map(b => ({ label: b.nome, value: b.valor })), 'Escolher banco');
     banco.value = bancos.find(b => b.valor === anterior)?.valor
       || bancos.find(b => nomeAnterior && chaveBanco(b.nome) === chaveBanco(nomeAnterior))?.valor || '';
+    selecaoCondicoes?.atualizar();
   }
 
   function entradaTabela() {
@@ -172,6 +176,7 @@ export async function initSimulador() {
       const numero = parseNumeroCalculo(entradaTabela()?.fator);
       fator.value = numero === null ? '' : formatarFatorCalculo(numero);
     }
+    selecaoCondicoes?.atualizar();
   }
 
   function limparResultado() {
@@ -359,6 +364,12 @@ export async function initSimulador() {
     })
   });
   montarBancos(); selecionarBanco();
+  selecaoCondicoes = initSelecaoCondicoes({ root, getContexto: () => ({
+    bancos, manual: origem.value === 'manual', outros: consultaOutrosAtiva, operacao: operacao.value, opcoes: listaAtual(),
+    nomeBanco: registro()?.nome || '',
+    logo: consultaOutrosAtiva ? bancoOutros?.logo
+      : dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo
+  }) });
   let ultimoPerfil = '';
   const pesquisa = initPesquisaBancos({
     getBancos: () => regras,

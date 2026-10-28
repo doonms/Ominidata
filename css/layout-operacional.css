@@ -57,6 +57,8 @@ body.od-page {
 .od-page .od-bank-title { display: flex; align-items: center; gap: 12px; }
 .od-page .od-bank-title strong { display: block; font-size: 15px; }
 .od-page .od-bank-title small { display: block; color: var(--od-muted); font-size: 11px; margin-top: 4px; }
+.od-page .inss-bank-identity { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.od-page .inss-bank-speed-field small { display: block; margin-top: 5px; font-size: 11px; line-height: 1.5; }
 .od-page button.od-card-toggle { display: flex; flex: 1 1 0; align-items: center; justify-content: flex-start; min-width: 0; min-height: 44px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; text-align: left; font-weight: inherit; }
 .od-page .od-card-copy { display: block; min-width: 0; overflow-wrap: anywhere; }
 .od-page .od-card-chevron { flex: 0 0 20px; margin-left: auto; color: #75bfff; font-size: 25px; text-align: center; transition: transform .15s; }
@@ -136,6 +138,7 @@ body.od-login { display: grid; place-items: center; min-height: 100dvh; padding:
   .od-page .od-port-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
+  .od-page .inss-bank-identity { grid-template-columns: minmax(0, 1fr); }
   .od-page .wrap { padding: 56px 14px 30px; margin: 0 auto; }
   .od-page .od-hero { padding: 12px 0 22px; gap: 14px; }
   .od-page .od-brand { gap: 12px; align-items: flex-start; }

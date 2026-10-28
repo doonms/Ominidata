@@ -148,57 +148,17 @@
 
       <div id="sim-operation-body">
       <section class="sim-controls" aria-label="Dados da simulação">
-        <div class="sim-calculation-head">
-        <div class="sim-mode-options" role="group" aria-label="O que deseja calcular?">
-            <label class="sim-mode-option">
-              <input type="radio" name="calcMode" id="modoParcela" value="parcela" />
-              <span class="sim-option-mark" aria-hidden="true"></span>
-              <span><strong>Calcular parcela</strong><small>Informe o valor que deseja liberar</small></span>
-            </label>
-            <label class="sim-mode-option">
-              <input type="radio" name="calcMode" id="modoLiberado" value="liberado" checked />
-              <span class="sim-option-mark" aria-hidden="true"></span>
-              <span><strong>Calcular valor liberado</strong><small>Informe o valor da parcela / margem</small></span>
-            </label>
+        <section class="sim-bank-selection" aria-labelledby="sim-bank-selection-title">
+          <div class="sim-selection-heading"><div><span class="sim-eyebrow">Instituição e condições</span><strong id="sim-bank-selection-title">Escolha o banco da simulação</strong></div><span id="sim-bank-options-count" class="sim-selection-count" aria-live="polite"></span></div>
+          <div class="sim-bank-selection-fields">
+            <div class="sim-field"><label for="sim-banco-busca">Buscar na lista de bancos</label><input type="search" id="sim-banco-busca" placeholder="Digite o nome do banco" autocomplete="off" /></div>
+            <div class="sim-field"><label for="slBanco">Banco (opcional no fator manual)</label><select id="slBanco"><option value="">Escolher banco</option></select></div>
           </div>
-        </div>
-
-        <div class="sim-inputs-grid">
-        <div class="grp sim-field sim-value-field" id="grpValorDesejado" style="display:none">
-          <label for="inpValorDesejado">Valor que deseja liberar</label>
-          <div class="sim-money-input">
-            <span>R$</span>
-            <input type="text" inputmode="decimal" id="inpValorDesejado" autocomplete="off" placeholder="0,00" />
+          <div class="sim-current-selection" id="sim-selection-summary" aria-live="polite">
+            <img id="sim-selected-bank-logo" alt="" hidden />
+            <div><strong id="sim-current-bank">Simulação sem banco</strong><span id="sim-current-condition">Fator manual</span></div>
           </div>
-        </div>
-
-        <div class="grp sim-field sim-value-field" id="grpValorMargem">
-          <label for="inpValorMargem">Valor da parcela / margem</label>
-          <div class="sim-money-input">
-            <span>R$</span>
-            <input type="text" inputmode="decimal" id="inpValorMargem" autocomplete="off" placeholder="0,00" />
-          </div>
-        </div>
-
-        <div class="grp sim-field">
-          <label for="inpFatorManual">Fator</label>
-          <input type="text" id="inpFatorManual" inputmode="decimal" autocomplete="off" placeholder="Ex.: 0,0234" aria-describedby="sim-fator-hint" />
-          <small class="sim-field-hint" id="sim-fator-hint">Parcela ÷ fator = valor liberado.</small>
-        </div>
-
-        <div class="grp sim-field">
-          <label for="slBanco">Banco (opcional)</label>
-          <select id="slBanco"><option value="">Escolher banco</option></select>
-        </div>
-
-        <div class="grp sim-field">
-          <label for="slOrigemFator">Origem do fator</label>
-          <select id="slOrigemFator">
-            <option value="manual">Fator manual</option>
-            <option value="tabela">Tabela cadastrada</option>
-          </select>
-        </div>
-        </div>
+        </section>
 
         <div class="sim-manual-fields" id="grpDetalhesManuais">
           <div class="grp sim-field">
@@ -254,6 +214,14 @@
           </select>
         </div>
 
+        <div class="grp sim-field">
+          <label for="slSeguro">Seguro</label>
+          <select id="slSeguro">
+            <option value="">Sem seguro</option>
+          </select>
+          <small class="sim-field-hint">Opcional. O valor será considerado no resultado.</small>
+        </div>
+
         <div class="grp sim-field" id="grpPrazoManual">
           <label for="inpPrazoManual">Prazo (opcional)</label>
           <input type="number" id="inpPrazoManual" min="1" step="1" placeholder="Ex.: 84" />
@@ -269,18 +237,53 @@
             <select id="slTabela" aria-describedby="sim-publico-hint"></select>
             <small id="sim-publico-hint" class="sim-field-hint">As tabelas seguem “Cliente assina?” e “Espécie” da pesquisa acima. Tabelas normais aparecem para todos.</small>
           </div>
+          <div class="sim-table-browser">
+            <div class="sim-selection-heading"><strong>Condições disponíveis</strong><span id="sim-table-options-count" class="sim-selection-count" aria-live="polite"></span></div>
+            <div id="sim-prazo-chips" class="sim-term-chips" role="group" aria-label="Escolher prazo"></div>
+            <div class="sim-field"><label for="sim-tabela-busca">Buscar tabela neste prazo</label><input type="search" id="sim-tabela-busca" placeholder="Nome ou código da tabela" autocomplete="off" /></div>
+            <div id="sim-table-choices" class="sim-table-choices" role="group" aria-label="Escolher tabela"></div>
+            <p id="sim-table-empty" class="sim-field-hint" hidden>Nenhuma tabela encontrada. Ajuste a busca ou escolha outro prazo.</p>
+          </div>
         </div>
 
-        <div class="grp sim-field">
-          <label for="slSeguro">Seguro</label>
-          <select id="slSeguro">
-            <option value="">Sem seguro</option>
-          </select>
-          <small class="sim-field-hint">Opcional. O valor será considerado no resultado.</small>
-        </div>
           </div>
         </details>
 
+        <section class="sim-calculation-entry" aria-label="Valores para calcular a simulação">
+          <div class="sim-calculation-head">
+            <strong class="sim-calculation-entry-title">Valores da simulação</strong>
+            <div class="sim-mode-options" role="group" aria-label="O que deseja calcular?">
+              <label class="sim-mode-option">
+                <input type="radio" name="calcMode" id="modoParcela" value="parcela" />
+                <span class="sim-option-mark" aria-hidden="true"></span>
+                <span><strong>Calcular parcela</strong><small>Informe o valor que deseja liberar</small></span>
+              </label>
+              <label class="sim-mode-option">
+                <input type="radio" name="calcMode" id="modoLiberado" value="liberado" checked />
+                <span class="sim-option-mark" aria-hidden="true"></span>
+                <span><strong>Calcular valor liberado</strong><small>Informe o valor da parcela / margem</small></span>
+              </label>
+            </div>
+          </div>
+          <div class="sim-inputs-grid">
+            <div class="grp sim-field sim-value-field" id="grpValorDesejado" style="display:none">
+              <label for="inpValorDesejado">Valor que deseja liberar</label>
+              <div class="sim-money-input"><span>R$</span><input type="text" inputmode="decimal" id="inpValorDesejado" autocomplete="off" placeholder="0,00" /></div>
+            </div>
+            <div class="grp sim-field sim-value-field" id="grpValorMargem">
+              <label for="inpValorMargem">Valor da parcela / margem</label>
+              <div class="sim-money-input"><span>R$</span><input type="text" inputmode="decimal" id="inpValorMargem" autocomplete="off" placeholder="0,00" /></div>
+            </div>
+            <div class="grp sim-field">
+              <label for="inpFatorManual">Fator</label>
+              <input type="text" id="inpFatorManual" inputmode="decimal" autocomplete="off" placeholder="Ex.: 0,0234" aria-describedby="sim-fator-hint" />
+              <small class="sim-field-hint" id="sim-fator-hint">Parcela ÷ fator = valor liberado.</small>
+            </div>
+            <div class="grp sim-field">
+              <label for="slOrigemFator">Origem do fator</label>
+              <select id="slOrigemFator"><option value="manual">Fator manual</option><option value="tabela">Tabela cadastrada</option></select>
+            </div>
+          </div>
         <div class="sim-calculation-footer">
         <p id="sim-status" class="sim-form-status" role="status" aria-live="polite">Informe o valor e o fator ou escolha um banco na pesquisa acima.</p>
         <button id="btnSimular" class="primary sim-submit" type="button">
@@ -288,19 +291,27 @@
           <span aria-hidden="true">→</span>
         </button>
         </div>
+        </section>
       </section>
 
       <details class="sim-multiple-panel" id="sim-multiplas">
-        <summary>Simular vários prazos e tabelas <span>Compare opções usando o mesmo valor ou parcela</span></summary>
+        <summary>Simular vários prazos e tabelas <span>Monte uma comparação de condições</span><b id="sim-multi-selecionadas" class="sim-selection-count">0 selecionadas</b></summary>
         <div class="sim-multiple-body">
+          <div class="sim-multi-context"><strong id="sim-multi-context-bank">Simulação manual</strong><span id="sim-multi-context-entry">Use o mesmo valor ou parcela em todas as condições.</span></div>
           <div id="sim-multi-cadastradas" hidden>
             <p class="sim-field-hint">Marque as tabelas do banco e da operação selecionados. A lista respeita os prazos disponíveis para o perfil carregado pela pesquisa.</p>
+            <div class="sim-multi-filters">
+              <div class="sim-field"><label for="sim-multi-busca">Buscar tabela para comparar</label><input type="search" id="sim-multi-busca" placeholder="Nome ou código da tabela" autocomplete="off" /></div>
+              <div class="sim-field"><label for="sim-multi-prazo">Filtrar por prazo</label><select id="sim-multi-prazo"><option value="">Todos os prazos</option></select></div>
+            </div>
             <div class="sim-multi-actions">
-              <button type="button" class="secondary" id="sim-multi-todas">Selecionar todas</button>
+              <button type="button" class="secondary" id="sim-multi-todas">Selecionar visíveis</button>
               <button type="button" class="secondary" id="sim-multi-limpar">Limpar seleção</button>
+              <span id="sim-multi-visiveis" class="sim-selection-count" aria-live="polite"></span>
             </div>
             <fieldset id="sim-multi-opcoes" class="sim-multi-options" aria-label="Prazos e tabelas para comparar"></fieldset>
             <p id="sim-multi-vazio" class="sim-field-hint">Nenhuma tabela disponível. Escolha um banco com fatores cadastrados ou use o modo Fator manual.</p>
+            <p id="sim-multi-sem-busca" class="sim-field-hint" hidden>Nenhuma condição corresponde à busca. As opções já marcadas continuam selecionadas.</p>
           </div>
           <div id="sim-multi-manual">
             <p class="sim-field-hint">Adicione opções com prazos, fatores ou nomes diferentes. Cada nova opção copia os dados manuais informados acima e pode ser editada separadamente.</p>
@@ -381,6 +392,7 @@
           <div><strong id="sim-multi-title">Comparação de simulações</strong><span id="sim-multi-quantidade" class="sim-result-badge"></span></div>
           <button type="button" class="secondary" id="sim-multi-limpar-resultados">Limpar comparação</button>
         </div>
+        <p id="sim-multi-result-context" class="sim-field-hint"></p>
         <div id="sim-multi-cards" class="sim-multi-cards"></div>
       </section>
       </div>

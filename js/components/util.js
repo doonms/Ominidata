@@ -1,4 +1,5 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, BASE_INSS_MIRRORS, readFromStorage, writeToStorage } from '../config/storageKeys.js';
+import { normalizarVelocidadeBanco } from '../utils/velocidade-banco.js';
 export const KEY = BASE_INSS_KEY;
 
 
@@ -22,6 +23,7 @@ export function salvarStorage(key, data){
 }
 
 export function normalize(b){
+  b.velocidadePagamento = normalizarVelocidadeBanco(b.velocidadePagamento);
   // prazos
   b.prazos = Array.isArray(b.prazos)? b.prazos.map(p=>({idade:p.idade||'',parcelas:p.parcelas||'',obs:p.obs||''})) : [{idade:'',parcelas:'',obs:''}];
   b.prazosCartao = Array.isArray(b.prazosCartao)? b.prazosCartao.map(p=>({idade:p.idade||'',parcelas:p.parcelas||'',obs:p.obs||''})) : [{idade:'',parcelas:'',obs:''}];
@@ -144,7 +146,7 @@ export function normalize(b){
 
 export function novoBancoPadrao(){
   return {
-    nome:'', teimosinha:'', tipoMinimo:'valor liberado', minimoLiberado:'',
+    nome:'', velocidadePagamento:'', teimosinha:'', tipoMinimo:'valor liberado', minimoLiberado:'',
     prazos:[{idade:'',parcelas:'',obs:''}],
     prazosCartao:[{idade:'',parcelas:'',obs:''}],
     prazosPortabilidade:[{idade:'',parcelas:'',obs:''}],

@@ -1,6 +1,7 @@
 import { aplicarFiltros, prazosPorIdade } from '../filtros/rapido.js';
 import { renderDetalhesBanco } from '../filtros/avancado.js';
 import { getLogoSrc } from '../utils/logo.js';
+import { VELOCIDADES_BANCO, normalizarVelocidadeBanco, criarSeloVelocidade } from '../utils/velocidade-banco.js';
 
 export const PRODUTOS = {
   margem: 'Margem', cartao: 'Cartão', refin: 'Refinanciamento',
@@ -114,8 +115,16 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
       const linha = bloco?.linhas[0];
       const correspondente = { produto: bloco?.produto, parcelas: linha?.parcelas ?? linha?.prazo,
         obs: String(linha?.obs ?? '').trim(), label: bloco?.label };
+      const observacaoGeral = filtros.especie === 'geral' ? String(banco.observacoes ?? '').trim() : '';
+      // O texto geral é do banco, não de outro prazo/espécie. A condição selecionada
+      // continua usando exclusivamente a observação da primeira linha compatível.
+      const observacoesCard = [correspondente.obs,
+        observacaoGeral && observacaoGeral !== correspondente.obs ? `Observações gerais: ${observacaoGeral}` : '']
+        .filter(Boolean).join('\n');
       const card = document.createElement('article');
       card.className = 'sim-bank-card';
+      const velocidade = normalizarVelocidadeBanco(banco.velocidadePagamento);
+      if (velocidade) card.dataset.velocidade = velocidade;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'sim-bank-option';
@@ -124,6 +133,13 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
       definirLogo(img, nome, banco.logoArquivo || banco.logo);
       const title = document.createElement('strong');
       title.textContent = nome;
+      const identidade = document.createElement('span');
+      identidade.className = 'sim-bank-identity';
+      identidade.appendChild(title);
+      const selo = criarSeloVelocidade(velocidade);
+      if (selo) {
+        button.setAttribute('aria-description', selo.title);
+      }
       const detalhe = document.createElement('span');
       detalhe.className = 'sim-bank-detail';
       for (const [label, valor] of [['Idade', filtros.idade != null ? `${filtros.idade} anos` : '—'],
@@ -143,9 +159,20 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
       action.className = 'sim-bank-simulate';
       action.textContent = temTabela(banco, filtros, correspondente) ? 'Usar tabela →' : 'Simular →';
       action.setAttribute('aria-label', `Carregar simulação de ${nome}`);
-      button.append(img, title, detalhe);
+      button.append(img, identidade, detalhe);
       card.appendChild(button);
-      if (!avancado && correspondente.obs) {
+      if (selo) {
+        const velocidadeLinha = document.createElement('div');
+        velocidadeLinha.className = 'sim-bank-speed-row';
+        velocidadeLinha.title = selo.title;
+        selo.setAttribute('aria-hidden', 'true');
+        const velocidadeTexto = document.createElement('span');
+        velocidadeTexto.className = 'sim-bank-speed-text';
+        velocidadeTexto.textContent = VELOCIDADES_BANCO[velocidade].nome;
+        velocidadeLinha.append(selo, velocidadeTexto);
+        card.appendChild(velocidadeLinha);
+      }
+      if (!avancado && observacoesCard) {
         const observacoes = document.createElement('div');
         observacoes.className = 'sim-bank-observations';
         observacoes.id = `sim-bank-obs-${vistos.size}`;
@@ -153,7 +180,7 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
         const texto = document.createElement('p');
         texto.className = 'sim-bank-observation-text';
         texto.id = `${observacoes.id}-texto`;
-        texto.textContent = correspondente.obs;
+        texto.textContent = observacoesCard;
         const toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'sim-bank-expand';
@@ -176,7 +203,7 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
         summary.textContent = 'Regras completas do banco';
         const body = document.createElement('div');
         body.className = 'sim-bank-advanced-body';
-        body.innerHTML = renderDetalhesBanco(banco, filtros);
+        body.innerHTML = renderDetalhesBanco(banco, filtros, { incluirObservacoesGerais: filtros.especie === 'geral' });
         detalhes.append(summary, body);
         card.appendChild(detalhes);
       }
@@ -193,6 +220,7 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
       button.setAttribute('aria-pressed', 'false');
       results.appendChild(card);
     });
+    results.classList.toggle('has-speed', !!results.querySelector('.sim-bank-speed-row'));
     if (bancos.length) count.textContent = `${vistos.size} banco${vistos.size === 1 ? '' : 's'}`;
     requestAnimationFrame(ajustarExpansores);
   }
@@ -206,7 +234,10 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
     clearTimeout(timer);
     timer = setTimeout(pesquisar, 180);
   });
-  form.addEventListener('change', pesquisar);
+  form.addEventListener('change', () => {
+    clearTimeout(timer);
+    pesquisar();
+  });
   form.addEventListener('reset', () => setTimeout(pesquisar, 0));
   pesquisar();
   return {

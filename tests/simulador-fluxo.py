@@ -25,7 +25,7 @@ REGRAS = [
                        dict(idade='18-60', parcelas='96', obs='Cartão: conferir <documento> & assinatura.')],
          prazosPortabilidade=[dict(idade='18-80', parcelas='84', obs='Portabilidade: confirmar saldo devedor.')]),
     dict(nomeBanco='Banco Jovem', nome='Banco Jovem', fazMargem=True,
-         observacoes='Observação geral que não deve aparecer.',
+         observacoes='Observação geral do banco.',
          prazos=[dict(idade='18-59', parcelas='72'),
                  dict(idade='18-59', parcelas='60', obs='Não usar a observação do segundo prazo.')]),
     dict(nomeBanco='Banco Livre', nome='Banco Livre', fazMargem=True,
@@ -121,7 +121,7 @@ def main():
         verificar_tamanho_cards()
         banco_obs = page.locator('.sim-bank-card').filter(has=page.get_by_role('button', name='Simular com Banco do Brasil', exact=True))
         expect(banco_obs.locator('.sim-bank-observations')).to_be_visible()
-        expect(banco_obs).not_to_contain_text('Conferir documentação.')
+        expect(banco_obs).to_contain_text('Conferir documentação.')
         expect(banco_obs).to_contain_text('Margem: condição para menores de 60.')
         expect(banco_obs).not_to_contain_text('Margem: condição a partir de 60 anos.')
         expect(banco_obs).not_to_contain_text('Cartão:')
@@ -131,9 +131,9 @@ def main():
         assert banco_obs.locator('documento').count() == 0
         assert banco_obs.locator('.sim-bank-observation-text').evaluate('(e)=>getComputedStyle(e).whiteSpace') == 'pre-line'
         jovem = page.locator('.sim-bank-card').filter(has=page.get_by_role('button', name='Simular com Banco Jovem', exact=True))
-        expect(jovem.locator('.sim-bank-observations')).to_have_count(0)
+        expect(jovem.locator('.sim-bank-observations')).to_have_count(1)
         expect(jovem.locator('.sim-bank-detail-value')).to_have_text(['—', '72x'])
-        expect(jovem).not_to_contain_text('Observação geral')
+        expect(jovem).to_contain_text('Observação geral do banco.')
         expect(jovem).not_to_contain_text('Não usar a observação')
         expandir = banco_obs.locator('.sim-bank-expand')
         expect(expandir).to_be_visible()
@@ -149,7 +149,7 @@ def main():
         expect(expandir).to_have_attribute('aria-expanded', 'false')
         verificar_tamanho_cards()
         page.evaluate('window.scrollTo(0, 0)')
-        print('PASS: somente a observação do primeiro prazo correspondente; sem gerais/outras regras; expandir não simula nem aumenta outros cards')
+        print('PASS: observação geral e primeiro prazo correspondente, sem outros prazos; expandir não simula nem aumenta outros cards')
         expect(page.locator('#slOrigemFator')).to_have_value('manual')
         expect(page.locator('#modoLiberado')).to_be_checked()
         expect(page.locator('#modoParcela')).not_to_be_checked()
@@ -279,7 +279,7 @@ def main():
         expect(page.locator('.sim-bank-option')).to_have_count(1)
         expect(banco_obs.locator('.sim-bank-detail-value')).to_have_text(['65 anos', '84x'])
         expect(banco_obs).not_to_contain_text('60-80')
-        expect(banco_obs.locator('.sim-bank-expand')).to_be_hidden()
+        expect(banco_obs.locator('.sim-bank-expand')).to_be_visible()
         expect(banco_obs).to_contain_text('Margem: condição a partir de 60 anos.')
         expect(banco_obs).not_to_contain_text('Margem: condição para menores de 60.')
         expect(banco_obs).not_to_contain_text('Cartão:')

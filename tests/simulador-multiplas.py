@@ -17,6 +17,14 @@ FATORES['BancodoBrasil']['fatores']['2026-10-16']['margem'] += [
 FATORES['BancodoBrasil']['fatores']['2026-10-16']['cartao'].append(
     dict(prazo=84, fator=20, taxa='', plano='Cartão alternativo'))
 FATORES['BancodoBrasil']['seguros'].append(dict(nome='Percentual', tipo='percentual', valor=10))
+REMOTOS = []
+for nome, banco in FATORES.items():
+    for bloco in banco['fatores'].values():
+        for tipo, linhas in bloco.items():
+            for linha in linhas:
+                REMOTOS.append(dict(linha, banco=nome, convenio='INSS', tipo=tipo, id=len(REMOTOS)+1))
+STUB = QA['STUB'].replace("const rows = table === 'base_inss' && !window.__qaVazio",
+    "const rows = table === 'base_fatores' ? window.__qaFatoresRemotos : table === 'base_inss' && !window.__qaVazio")
 
 
 def main():
@@ -26,9 +34,10 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch(channel='chrome', headless=True)
             context = browser.new_context(viewport={'width': 1366, 'height': 900}, service_workers='block')
-            context.route('**/js/supa/supabaseClient.js', lambda r: r.fulfill(content_type='application/javascript', body=QA['STUB']))
+            context.route('**/js/supa/supabaseClient.js', lambda r: r.fulfill(content_type='application/javascript', body=STUB))
             context.route('https://**/*', lambda r: r.abort())
             context.add_init_script('window.__qaRegras=' + json.dumps(QA['REGRAS']) + ';'
+                'window.__qaFatoresRemotos=' + json.dumps(REMOTOS) + ';'
                 'sessionStorage.setItem("ominidata_user",JSON.stringify({email:"dominicplf@gmail.com"}));'
                 'localStorage.setItem("ominidata_base_inss_v1",JSON.stringify(window.__qaRegras));'
                 'localStorage.setItem("ominidata_base_fatores_v1",' + json.dumps(json.dumps(FATORES)) + ');')

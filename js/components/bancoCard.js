@@ -3,6 +3,7 @@ import { getAbaInvalidezHTML } from './tabs/abaInvalidez.js';
 import { getAbaLoasHTML } from './tabs/abaLoas.js';
 import { getAbaPensaoHTML } from './tabs/abaPensao.js';
 import { esc } from './util.js';
+import { VELOCIDADES_BANCO, normalizarVelocidadeBanco } from '../utils/velocidade-banco.js';
 
 export function criarBancoCard(banco, idx, active='geral'){
   const invalTab = banco.aceitaInvalidez ? `<button class="tabbtn ${active==='invalidez'?'active':''}" data-tab="${idx}:invalidez">Invalidez</button>` : '';
@@ -23,10 +24,18 @@ export function criarBancoCard(banco, idx, active='geral'){
     </div>
 
     <div class="card-body">
-      <div class="row">
+      <div class="row inss-bank-identity">
         <div class="col">
-          <label>Nome do banco</label>
-          <input data-put="${idx}:nome" value="${esc(banco.nome||'')}" />
+          <label for="inss-bank-name-${idx}">Nome do banco</label>
+          <input id="inss-bank-name-${idx}" data-put="${idx}:nome" value="${esc(banco.nome||'')}" />
+        </div>
+        <div class="col inss-bank-speed-field">
+          <label for="inss-bank-speed-${idx}">Velocidade do banco</label>
+          <select id="inss-bank-speed-${idx}" data-put="${idx}:velocidadePagamento" aria-describedby="inss-bank-speed-help-${idx}">
+            <option value="">Não informado</option>
+            ${Object.entries(VELOCIDADES_BANCO).map(([codigo, info]) => `<option value="${codigo}" ${normalizarVelocidadeBanco(banco.velocidadePagamento) === codigo ? 'selected' : ''}>${info.nome}${codigo === 'manual' ? ' (processo mais lento)' : ''}</option>`).join('')}
+          </select>
+          <small id="inss-bank-speed-help-${idx}" class="muted">Exibida no simulador como símbolo e cor. Não representa garantia de prazo.</small>
         </div>
       </div>
 
