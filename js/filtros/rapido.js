@@ -1,5 +1,6 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
 import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
+import { flagCadastrada as ativo } from '../utils/flag-cadastrada.js';
 // Modo RÁPIDO: mostra cards compactos com Banco + (Idade do filtro) + 1º prazo compatível + Obs
 function getDB(){
   const data = readFromStorage(BASE_INSS_KEY, BASE_INSS_FALLBACKS);
@@ -82,21 +83,21 @@ function prazosAccessor(b, especie, produto){
 }
 function especieAssinaturaOK(b, especie, assina){
   if(especie==='loas'){
-    if(!b.aceitaLoas) return false;
-    if(assina==='nao' && !(b.loasAceitaNaoAssina || b.aceitaClienteNaoAssina)) return false;
+    if(!ativo(b.aceitaLoas)) return false;
+    if(assina==='nao' && !(ativo(b.loasAceitaNaoAssina) || ativo(b.aceitaClienteNaoAssina))) return false;
     return true;
   }
   if(especie==='invalidez'){
-    if(!b.aceitaInvalidez) return false;
-    if(assina==='nao' && !b.aceitaClienteNaoAssina) return false;
+    if(!ativo(b.aceitaInvalidez)) return false;
+    if(assina==='nao' && !ativo(b.aceitaClienteNaoAssina)) return false;
     return true;
   }
   if(especie==='pensao'){
-    if(!(b.aceitaClientePensao || b.fazPensao)) return false;
-    if(assina==='nao' && !(b.pensaoAceitaNaoAssina || b.aceitaClienteNaoAssina)) return false;
+    if(!ativo(b.aceitaClientePensao ?? b.fazPensao)) return false;
+    if(assina==='nao' && !(ativo(b.pensaoAceitaNaoAssina) || ativo(b.aceitaClienteNaoAssina))) return false;
     return true;
   }
-  if(assina==='nao' && !b.aceitaClienteNaoAssina) return false;
+  if(assina==='nao' && !ativo(b.aceitaClienteNaoAssina)) return false;
   return true;
 }
 function produtosOK(b, especie, prodsSel){
@@ -105,7 +106,7 @@ function produtosOK(b, especie, prodsSel){
   if(!requeridos.length) return true;
   return requeridos.every(p => {
     const key = map[p];
-    return key ? !!b[key] : false;
+    return key ? ativo(b[key]) : false;
   });
 }
 function extractLoasTipo(label){
@@ -118,6 +119,7 @@ export function prazosPorIdade(b, especie, idade, prodsSel){
   const listar = (selecionados.length ? selecionados : ['margem','cartao','refin','port','saque']);
   const out = [];
   for(const p of listar){
+    if (!ativo(b[produtoKeyMap(especie)[p]])) continue;
     const blocos = prazosAccessor(b, especie, p);
     if(!blocos || !blocos.length) continue;
     for(const bloco of blocos){
@@ -143,7 +145,7 @@ function lerControles(ctrls){
   return { idade, especie, assina, nome, prods };
 }
 export function aplicarFiltros(db, f){
-  const source = Array.isArray(db) ? db.filter(b => !b.suspenso) : [];
+  const source = Array.isArray(db) ? db.filter(b => !ativo(b.suspenso)) : [];
   const base = source.filter(b=>{
     if(f.nome && !String(b.nomeBanco||'').toLowerCase().includes(f.nome)) return false;
     if(!especieAssinaturaOK(b, f.especie, f.assina)) return false;

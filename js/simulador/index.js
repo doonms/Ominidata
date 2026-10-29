@@ -509,7 +509,7 @@ export async function initSimulador() {
   }
   if (regrasRemotas.status === 'fulfilled') {
     const lista = listaRegras(regrasRemotas.value);
-    if (lista.length) regras = lista;
+    regras = lista; // Resposta remota vazia também remove regras antigas do cache.
   } else if (fonte) {
     fonte.textContent += ' Não foi possível atualizar as regras dos bancos; a pesquisa usa as regras locais disponíveis.';
   }

@@ -1,5 +1,7 @@
 import { BASE_INSS_KEY, BASE_INSS_FALLBACKS, readFromStorage } from '../config/storageKeys.js';
 import { getLogoSrc, getLogoFallbackAttr } from '../utils/logo.js';
+import { flagCadastrada as ativo } from '../utils/flag-cadastrada.js';
+import { aplicarFiltros } from './rapido.js';
 // /js/filtros/avancado.js
 // Modo AVANÇADO — filtra os bancos pelos controles selecionados e mostra
 // todas as seções dos bancos compatíveis.
@@ -197,7 +199,10 @@ function canonDoc(doc){
 }
 
 // ---------- Seções (chips sem “sim/não”) ----------
-function secOperacoes(b){
+function secOperacoes(b, especie = 'geral'){
+  const map = produtoKeyMap(especie);
+  b = { fazMargem: ativo(b[map.margem]), fazCartao: ativo(b[map.cartao]),
+    fazRefin: ativo(b[map.refin]), fazPortabilidade: ativo(b[map.port]), fazSaqueComplementar: ativo(b[map.saque]) };
   const items = [];
   if(b.fazMargem) items.push('Margem');
   if(b.fazCartao) items.push('Cartão');
@@ -215,7 +220,7 @@ function secPerfis(b){
   if(b.aceitaClienteNaoAssina) items.push('Não assinante');
   if(b.aceitaLoas) items.push('LOAS');
   if(b.aceitaInvalidez) items.push('Invalidez');
-  if(b.aceitaClientePensao || b.fazPensao) items.push('Pensão');
+  if(ativo(b.aceitaClientePensao ?? b.fazPensao)) items.push('Pensão');
   return items.length ? `
     <div class="subblock">
       <div class="subttl">Perfis aceitos</div>
@@ -248,6 +253,7 @@ function secDocs(b){
     <div class="subblock">
       <div class="subttl">Documentos aceitos</div>
       <div class="chips">${norm.map(t=>`<span class="chip ok">${esc(t)}</span>`).join(' ')}${outs}</div>
+      ${b.outrosDocs ? `<div class="sim-bank-general-text">${esc(b.outrosDocs)}</div>` : ''}
     </div>` : '';
 }
 function secProcedimentos(b){
@@ -269,7 +275,11 @@ function secProcedimentos(b){
       </div>`:''}
     </div>`;
 }
-function secNaoAssina(b){
+function secNaoAssina(b, especie = 'geral'){
+  const aceita = ativo(b.aceitaClienteNaoAssina) ||
+    (especie === 'loas' && ativo(b.aceitaLoas) && ativo(b.loasAceitaNaoAssina)) ||
+    (especie === 'pensao' && ativo(b.aceitaClientePensao ?? b.fazPensao) && ativo(b.pensaoAceitaNaoAssina));
+  if (!aceita) return '';
   const items = [];
   if(b.naoAssina_precisaEnviarFisico) items.push({t:'Enviar físico'});
   if(b.naoAssina_precisaEnviarEmail) items.push({t:'Enviar por e-mail'});
@@ -300,19 +310,40 @@ function secContrato60(b){
     <div class="subblock">
       <div class="subttl">Contrato 60+</div>
       <div class="chips">${estados} ${tags.map(t=>`<span class="chip ok">${esc(t)}</span>`).join(' ')}</div>
+      ${b.contrato60_precisaGravarVideo && b.contrato60_gravarVideoObs ? `<div>${esc(b.contrato60_gravarVideoObs)}</div>` : ''}
     </div>`;
 }
 function secExtras(b){
   const rows = [];
   if(b.teimosinha) rows.push(`<div><b>Teimosinha:</b> ${esc(b.teimosinha)}</div>`);
-  if(b.minimoLiberado) rows.push(`<div><b>Mínimo liberado:</b> ${esc(b.minimoLiberado)}</div>`);
-  if(b.tipoMinimo) rows.push(`<div><b>Tipo de mínimo:</b> ${esc(b.tipoMinimo)}</div>`);
+  if(b.minimoLiberado) rows.push(`<div><b>Mínimo (${esc(b.tipoMinimo || 'valor liberado')}):</b> ${esc(b.minimoLiberado)}</div>`);
   if(!rows.length) return '';
   return `
     <div class="subblock">
       <div class="subttl">Extras</div>
       <div class="mini-grid">${rows.join('')}</div>
     </div>`;
+}
+
+function secInformacoes(b) {
+  const rows = [];
+  for (const [label, key] of [['Bancos aceitos', 'bancosAceitos'], ['Bancos não aceitos', 'bancosNaoAceitos'], ['E-mails', 'emails']]) {
+    const values = (Array.isArray(b[key]) ? b[key] : []).map(v => String(v ?? '').trim()).filter(Boolean);
+    if (values.length) rows.push(`<div><b>${label}:</b> ${values.map(esc).join(', ')}</div>`);
+  }
+  for (const c of Array.isArray(b.contatos) ? b.contatos : []) {
+    if (c.numero || c.obs) rows.push(`<div><b>Contato:</b> ${esc(c.numero)} ${esc(c.obs)}</div>`);
+  }
+  for (const link of Array.isArray(b.links) ? b.links : []) {
+    if (!String(link || '').trim()) continue;
+    const safe = /^https?:\/\//i.test(String(link).trim());
+    rows.push(`<div><b>Link:</b> ${safe ? `<a href="${esc(String(link).trim())}" target="_blank" rel="noopener noreferrer">${esc(link)}</a>` : esc(link)}</div>`);
+  }
+  if (ativo(b.aceitaLoas)) {
+    if (ativo(b.loasRMC)) rows.push('<div>LOAS: RMC</div>');
+    if (ativo(b.loasRCC)) rows.push('<div>LOAS: RCC</div>');
+  }
+  return rows.length ? `<div class="subblock"><div class="subttl">Informações complementares</div><div class="sim-bank-general-text">${rows.join('')}</div></div>` : '';
 }
 
 // ---------- Prazos ----------
@@ -339,9 +370,8 @@ function buildPrazoRows(arr, idadeFiltro){
     </div>
     <div class="prz-rows">${rows}</div>`;
 }
-function secPrazosBanco(b, f){
-  // Mostra todas as famílias (Geral, Invalidez, LOAS 87/88, Pensão), cada uma só se tiver dados
-  // Filtro: aplica IDADE se informada; espécies: mostramos todas (mais fácil de comparar).
+function secPrazosBanco(b, f, filtrarContexto = false){
+  // Seções desativadas nunca viram oferta. No simulador, restringe também ao contexto da pesquisa.
   const idade = f?.idade ?? null;
   const blocks = [];
 
@@ -375,6 +405,13 @@ function secPrazosBanco(b, f){
   blocks.push(['LOAS 88 — Portabilidade', b.loas88Port]);
 
   const sections = blocks.map(([label, arr])=>{
+    const especie = label.startsWith('Invalidez') ? 'invalidez' : label.startsWith('Pensão') ? 'pensao' : label.startsWith('LOAS') ? 'loas' : 'geral';
+    const produto = label.includes('Cartão') ? 'cartao' : label.includes('Refin') ? 'refin' : label.includes('Portabilidade') ? 'port' : 'margem';
+    const aceita = especie === 'geral' || (especie === 'invalidez' ? ativo(b.aceitaInvalidez)
+      : especie === 'loas' ? ativo(b.aceitaLoas) : ativo(b.aceitaClientePensao ?? b.fazPensao));
+    if (!aceita || !ativo(b[produtoKeyMap(especie)[produto]])) return '';
+    if (filtrarContexto && (especie !== (f.especie || 'geral') ||
+      (Object.values(f.prods || {}).some(Boolean) && !f.prods[produto]))) return '';
     const table = buildPrazoRows(arr, idade);
     if(!table) return '';
     return `<div class="subblock prz-group"><div class="subttl">${esc(label)}</div>${table}</div>`;
@@ -388,18 +425,30 @@ function secPrazosBanco(b, f){
 }
 
 // ---------- Render ----------
-export function renderDetalhesBanco(b, f = {}, { incluirObservacoesGerais = false } = {}){
+export function renderDetalhesBanco(b, f = {}, { incluirObservacoesGerais = false, filtrarContexto = false } = {}){
+  // Normaliza somente flags; não deduz aceitação a partir de prazos ou regras ocultas.
+  b = { ...b };
+  const flags = ['aceitaClienteNaoAssina', 'aceitaLoas', 'aceitaInvalidez', 'aceitaClientePensao', 'fazPensao',
+    'precisaVideo', 'fazLigacaoCliente', 'clienteLigaBanco', 'precisaGravarVideo', 'precisaEnviarContratoBanco',
+    'loasAceitaNaoAssina', 'pensaoAceitaNaoAssina',
+    'naoAssina_precisaEnviarFisico', 'naoAssina_precisaEnviarEmail', 'naoAssina_precisaVideo',
+    'naoAssina_fazLigacao', 'naoAssina_clienteLigaBanco', 'naoAssina_precisaGravarVideo',
+    'contrato60', 'contrato60_enviarFisico', 'contrato60_enviarEmail', 'contrato60_precisaGravarVideo'];
+  for (const key of flags) {
+    if (Object.hasOwn(b, key)) b[key] = ativo(b[key]);
+  }
   const observacoes = incluirObservacoesGerais ? String(b.observacoes ?? '').trim() : '';
   const body = [
-    secOperacoes(b),
+    secOperacoes(b, filtrarContexto ? f.especie : 'geral'),
     secPerfis(b),
-    secRogo(b),
+    b.aceitaClienteNaoAssina && (!filtrarContexto || f.assina !== 'sim') ? secRogo(b) : '',
     secDocs(b),
     secProcedimentos(b),
-    secNaoAssina(b),
-    secContrato60(b),
+    !filtrarContexto || f.assina !== 'sim' ? secNaoAssina(b, f.especie) : '',
+    !filtrarContexto || !f.idade || f.idade >= 60 ? secContrato60(b) : '',
     secExtras(b),
-    secPrazosBanco(b, f),
+    secPrazosBanco(b, f, filtrarContexto),
+    secInformacoes(b),
     observacoes ? `<div class="subblock sim-bank-general-observations"><div class="subttl">Observações gerais</div><div class="sim-bank-general-text">${esc(observacoes)}</div></div>` : ''
   ].filter(Boolean).join('');
 
@@ -438,7 +487,7 @@ export function runAvancado(config){
   } = config || {};
   const db = getDB();
   const f  = lerControles(controls);
-  const lista = filtraBancos(db, f);
+  const lista = aplicarFiltros(db, f);
   renderAvancado(lista, f, resultsEl);
 }
 

@@ -7,6 +7,7 @@ const PUBLIC_REDIRECT = 'pages/pesquisa.html';
 
 
 let SPA_BASE_PREFIX = '';
+let routerStarted = false;
 
 function resolveAssetHref(path) {
   if (!path) return path;
@@ -227,6 +228,8 @@ async function applyHeadResources(htmlText, pageUrl) {
   const targetUrl = new URL(pageUrl, window.location.href);
   const pending = [];
   const activeStyles = new Set();
+  const previousStyles = [...document.querySelectorAll('link[rel="stylesheet"]')];
+  const addedStyles = [];
   doc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
     const relativeHref = link.getAttribute('href');
     if (!relativeHref) return;
@@ -240,14 +243,21 @@ async function applyHeadResources(htmlText, pageUrl) {
     } else {
       const clone = link.cloneNode();
       clone.href = href;
+      addedStyles.push(clone);
       pending.push(new Promise((resolve, reject) => {
-        clone.onload = resolve;
-        clone.onerror = () => reject(new Error(`Falha ao carregar estilos: ${href}`));
+        const timer = setTimeout(() => reject(new Error(`Tempo excedido ao carregar estilos: ${href}`)), 15000);
+        clone.onload = () => { clearTimeout(timer); resolve(); };
+        clone.onerror = () => { clearTimeout(timer); reject(new Error(`Falha ao carregar estilos: ${href}`)); };
       }));
       document.head.appendChild(clone);
     }
   });
-  await Promise.all(pending);
+  try { await Promise.all(pending); }
+  catch (error) {
+    addedStyles.forEach(link => link.remove());
+    previousStyles.forEach(link => document.head.appendChild(link));
+    throw error;
+  }
   const appCssPrefix = new URL('css/', window.location.origin + SPA_BASE_PREFIX).href;
   document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
     if (link.href.startsWith(appCssPrefix) && !activeStyles.has(link.href)) link.remove();
@@ -257,6 +267,8 @@ async function applyHeadResources(htmlText, pageUrl) {
 }
 
 export function iniciarSPA() {
+  if (routerStarted) return;
+  routerStarted = true;
   const sidebar = document.getElementById('sidebar');
 
   const basePrefix = (() => {
@@ -284,7 +296,6 @@ export function iniciarSPA() {
     usuarios: 'pages/usuarios.html'
   };
 
-  const fadeOut = async el => { if (!el) return; el.style.transition='opacity .25s'; el.style.opacity='0'; await new Promise(r=>setTimeout(r,250)); };
   const fadeIn = el => { if (!el) return; el.style.opacity='0'; el.style.transition='opacity .25s'; requestAnimationFrame(()=>{ el.style.opacity='1'; }); };
 
   const ensureWrap = () => {
@@ -302,6 +313,19 @@ export function iniciarSPA() {
   };
 
   const loadPage = async (href, push = true) => {
+    const requestId = ++latestRequest;
+    activeFetch?.abort();
+    navigationQueue = navigationQueue.catch(() => {}).then(() => {
+      if (requestId !== latestRequest) return;
+      return navigate(href, push, requestId);
+    });
+    return navigationQueue;
+  };
+  let latestRequest = 0;
+  let navigationQueue = Promise.resolve();
+  let activeFetch;
+  let committedUrl = window.location.href;
+  const navigate = async (href, push, requestId) => {
     let normalized = href;
     if (/^(https?|file):/i.test(normalized)) {
       try { normalized = new URL(normalized, window.location.origin).pathname; }
@@ -315,6 +339,7 @@ export function iniciarSPA() {
     let user;
     try {
       user = await getCurrentUser();
+      if (requestId !== latestRequest) return;
     } catch (err) {
       alert(err.message);
       return;
@@ -328,71 +353,77 @@ export function iniciarSPA() {
       if (normalized === redirectTarget) {
         console.warn('Usuário sem acesso administrativo tentou acessar rota protegida.');
       } else {
-        return loadPage(redirectTarget, push);
+        return navigate(redirectTarget, push, requestId);
       }
     }
 
     const url = new URL(normalized, window.location.origin + basePrefix).href;
     const wrap = ensureWrap();
-    const currentPanel = wrap.querySelector('.panel');
-    await fadeOut(currentPanel);
-
     try {
-      const res = await fetch(url, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      const scriptsToLoad = await applyHeadResources(html, url);
-
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
+      document.querySelector('#spa-navigation-error')?.remove();
+      const controller = new AbortController();
+      activeFetch = controller;
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let html;
+      try {
+        const res = await fetch(url, { cache: 'no-cache', signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        html = await res.text();
+      } finally {
+        clearTimeout(timeout);
+        if (activeFetch === controller) activeFetch = null;
+      }
+      if (requestId !== latestRequest) return;
+      const temp = new DOMParser().parseFromString(html, 'text/html');
       const newWrap = temp.querySelector('.wrap');
-      const newPanel = temp.querySelector('.panel');
-      if (newWrap) {
-        newWrap.querySelectorAll('img[src]').forEach(img => {
-          img.src = new URL(img.getAttribute('src'), new URL(url, window.location.href)).href;
-        });
-      }
-
-      if (newWrap) {
-        wrap.replaceWith(newWrap);
-        fadeIn(newWrap.querySelector('.panel') || newWrap);
-      } else if (newPanel) {
-        currentPanel.replaceWith(newPanel);
-        fadeIn(newPanel);
-      } else {
-        const fallback = document.createElement('div');
-        fallback.className = 'panel';
-        fallback.innerHTML = html;
-        currentPanel.replaceWith(fallback);
-        fadeIn(fallback);
-      }
+      if (!newWrap) throw new Error('O servidor não retornou a página solicitada.');
+      await applyHeadResources(html, url);
+      // Inicialização e troca de estilos são serializadas: uma página não inicializa a outra.
+      newWrap.querySelectorAll('[src], a[href], form[action]').forEach(node => {
+        const attr = node.hasAttribute('src') ? 'src' : node.hasAttribute('href') ? 'href' : 'action';
+        const value = node.getAttribute(attr);
+        if (value && !value.startsWith('#')) node.setAttribute(attr, new URL(value, url).href);
+      });
+      wrap.replaceWith(newWrap);
+      fadeIn(newWrap.querySelector('.panel') || newWrap);
 
       if (push) history.pushState({ href: url }, '', url);
-
-      for (const src of scriptsToLoad) {
-        if (src && !document.querySelector(`script[type="module"][src="${src}"]`)) {
-          const modScript = document.createElement('script');
-          modScript.type = 'module';
-          modScript.src = src;
-          document.body.appendChild(modScript);
-        }
-      }
+      committedUrl = url;
+      document.title = temp.title || document.title;
 
       // chama o inicializador da pÃ¡gina apÃ³s injeÃ§Ã£o
       await runPageInitializer(href);
       finishPageAccess();
       document.dispatchEvent(new CustomEvent('spa:page-loaded', { detail: { href } }));
     } catch (err) {
+      if (requestId !== latestRequest) return;
       console.error('Erro ao carregar pÃ¡gina:', err);
-      fadeIn(currentPanel);
-      alert('NÃ£o foi possÃ­vel carregar esta pÃ¡gina.');
+      if (!push) history.replaceState({ href: committedUrl }, '', committedUrl);
+      const notice = document.createElement('aside');
+      notice.id = 'spa-navigation-error';
+      notice.setAttribute('role', 'alert');
+      notice.style.cssText = 'position:fixed;bottom:16px;left:16px;right:16px;z-index:9999;padding:16px;background:#17384b;color:white;border:1px solid #72c6df;border-radius:12px';
+      const text = document.createElement('p');
+      text.textContent = 'Não foi possível abrir esta página. A tela atual foi mantida. Você pode tentar novamente sem fechar o site.';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = 'Tentar novamente';
+      retry.onclick = () => loadPage(normalized, push);
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.textContent = 'Fechar aviso';
+      close.onclick = () => notice.remove();
+      notice.append(text, retry, close);
+      document.body.appendChild(notice);
     }
   };
 
   if (sidebar) {
     sidebar.addEventListener('click', e => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       const a = e.target.closest('a[data-nav]');
       if (!a) return;
+      if (a.target && a.target !== '_self' || a.hasAttribute('download')) return;
       const route = routes[a.dataset.nav];
       if (!route) return;
       e.preventDefault();
@@ -403,8 +434,10 @@ export function iniciarSPA() {
 
   document.addEventListener('click', e => {
     if (e.defaultPrevented) return;
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest('a[href]');
     if (!a) return;
+    if (a.target && a.target !== '_self' || a.hasAttribute('download')) return;
     let href;
     try { href = new URL(a.getAttribute('href'), document.baseURI); }
     catch { return; }

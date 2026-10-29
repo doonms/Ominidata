@@ -15,6 +15,10 @@ REGRAS[0].update(documentos=['RG', 'CNH'], outrosDocs='Comprovante "novo" <clien
     precisaVideo=True, precisaVideoObs='Conferir "documento" <cliente> & assinatura.',
     naoAssina_precisaEnviarFisico=True, contrato60=True, contrato60_estados='SP, RJ',
     contrato60_enviarEmail=True, teimosinha='5 dias')
+REMOTOS = [dict(banco=banco, tipo=tipo, **linha)
+    for banco, dados in QA['FATORES'].items()
+    for tipo, linhas in dados['fatores']['2026-10-16'].items() for linha in linhas]
+STUB = QA['STUB'].replace("const rows = table === 'base_inss'", "const rows = table === 'base_fatores' ? window.__qaFatoresRemotos : table === 'base_inss'")
 
 
 def main():
@@ -25,9 +29,10 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch(channel='chrome', headless=True)
             context = browser.new_context(viewport={'width': 1366, 'height': 900}, service_workers='block')
-            context.route('**/js/supa/supabaseClient.js', lambda r: r.fulfill(content_type='application/javascript', body=QA['STUB']))
+            context.route('**/js/supa/supabaseClient.js', lambda r: r.fulfill(content_type='application/javascript', body=STUB))
             context.route('https://**/*', lambda r: r.abort())
             context.add_init_script('window.__qaRegras=' + json.dumps(REGRAS) + ';'
+                'window.__qaFatoresRemotos=' + json.dumps(REMOTOS) + ';'
                 'sessionStorage.setItem("ominidata_user",JSON.stringify({email:"dominicplf@gmail.com"}));'
                 'localStorage.setItem("ominidata_base_inss_v1",JSON.stringify(window.__qaRegras));'
                 'localStorage.setItem("ominidata_base_fatores_v1",' + json.dumps(json.dumps(QA['FATORES'])) + ');')

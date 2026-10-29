@@ -1,4 +1,5 @@
 import { supabase } from "../supa/supabaseClient.js";
+import '../utils/registrar-sw.js';
 
 const PERFIS = new Set(["master", "admin", "consulta"]);
 const ADMIN_PAGES = new Set([

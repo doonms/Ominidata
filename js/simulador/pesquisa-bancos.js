@@ -200,10 +200,12 @@ export function initPesquisaBancos({ getBancos, temTabela, aoSelecionar, aoFiltr
         const detalhes = document.createElement('details');
         detalhes.className = 'sim-bank-advanced-details';
         const summary = document.createElement('summary');
-        summary.textContent = 'Regras completas do banco';
+        summary.textContent = 'Regras do banco para esta pesquisa';
         const body = document.createElement('div');
         body.className = 'sim-bank-advanced-body';
-        body.innerHTML = renderDetalhesBanco(banco, filtros, { incluirObservacoesGerais: filtros.especie === 'geral' });
+        body.innerHTML = renderDetalhesBanco(banco, filtros, {
+          incluirObservacoesGerais: filtros.especie === 'geral', filtrarContexto: true
+        });
         detalhes.append(summary, body);
         card.appendChild(detalhes);
       }
