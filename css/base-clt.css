@@ -1,0 +1,58 @@
+/* Estilos restritos à nova base; não mudam os editores INSS ou Outros Convênios. */
+.clt-editor .clt-local-note { padding: 15px 18px; border: 1px solid #25485d; border-radius: 11px; background: #0b293b; }
+.clt-editor .clt-local-note strong { font-size: 12px; color: #bee3fb; }
+.clt-editor .clt-local-note p, .clt-editor .clt-hint { margin: 6px 0 0; color: var(--od-muted); font-size: 12px; line-height: 1.6; }
+.clt-editor .clt-sync-actions { margin: 14px 0 10px; }
+.clt-editor #clt-remoto-status { overflow-wrap: anywhere; }
+.clt-editor .clt-search-row { display: flex; align-items: end; gap: 16px; margin: 22px 0 12px; }
+.clt-editor .clt-search-row label { flex: 1; max-width: 560px; margin: 0; }
+.clt-editor label > input, .clt-editor label > select, .clt-editor label > textarea { margin-top: 6px; }
+.clt-editor .clt-status { font-size: 12px; color: #90dec5; min-height: 20px; margin: 10px 0; overflow-wrap: anywhere; }
+.clt-editor .clt-status.is-error { color: #ffb6bf; }
+.clt-editor .clt-hint { margin-bottom: 20px; }
+.clt-editor .clt-bank { min-width: 0; border: 1px solid var(--od-line); border-radius: 13px; background: #081e2c; margin-bottom: 14px; overflow: hidden; }
+.clt-editor .clt-bank.is-suspended { border-color: #735139; }
+.clt-editor .clt-bank > summary { display: flex; align-items: center; gap: 14px; list-style: none; cursor: pointer; padding: 18px; background: #0c2637; }
+.clt-editor .clt-bank > summary::-webkit-details-marker { display: none; }
+.clt-editor .clt-bank > summary::after { content: '›'; font-size: 28px; color: #75bfff; margin-left: auto; flex-shrink: 0; }
+.clt-editor .clt-bank[open] > summary::after { transform: rotate(90deg); }
+.clt-editor .clt-bank > summary:focus-visible { outline: 2px solid #8bd2ff; outline-offset: -3px; }
+.clt-editor .clt-bank-logo { width: 52px; height: 44px; object-fit: contain; flex-shrink: 0; background: transparent; }
+.clt-editor .clt-bank-copy { min-width: 0; flex: 1; }
+.clt-editor .clt-bank-name { display: block; font-size: 15px; color: #e2f3ff; overflow-wrap: anywhere; }
+.clt-editor .clt-bank-resumo { display: block; margin-top: 5px; color: var(--od-muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.clt-editor .clt-bank-body { padding: 22px; border-top: 1px solid var(--od-line); }
+.clt-editor .clt-section { margin: 22px 0; padding-top: 20px; border-top: 1px solid var(--od-line); }
+.clt-editor .clt-section h3 { font-size: 13px; margin: 0 0 14px; color: #cfeaff; }
+.clt-editor .clt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.clt-editor .clt-grid > label { min-width: 0; margin: 0; }
+.clt-editor .clt-field-note { display: block; font-size: 11px; margin-top: 5px; color: var(--od-muted); }
+.clt-editor .clt-age-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.clt-editor .clt-age-heading h4 { margin: 0; font-size: 12px; color: #cfeaff; }
+.clt-editor .clt-age-heading + .clt-hint { margin: 8px 0 14px; }
+.clt-editor .clt-age-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px 16px; border: 1px solid var(--od-line); border-radius: 10px; padding: 16px; margin-top: 12px; }
+.clt-editor .clt-age-title { grid-column: 1 / -1; font-size: 11px; color: #8bcfff; }
+.clt-editor .clt-documents { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.clt-editor .clt-documents label { margin: 0; }
+.clt-editor .clt-documents input { margin: 0; }
+.clt-editor .clt-other-documents { margin-top: 16px; }
+.clt-editor .clt-other-documents label { display: block; margin: 0; }
+.clt-editor .clt-insurance-description { margin-top: 16px; }
+.clt-editor .clt-insurance-description label { display: block; margin: 0; }
+.clt-editor .clt-bank-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--od-line); }
+.clt-editor .clt-empty { padding: 38px 20px; border: 1px dashed #294859; border-radius: 12px; color: var(--od-muted); font-size: 13px; text-align: center; line-height: 1.7; }
+.clt-editor .clt-empty strong { display: block; color: #d9edfb; font-size: 15px; }
+.clt-editor .clt-bottom-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+.clt-editor [hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .clt-editor .clt-search-row { flex-wrap: wrap; align-items: center; }
+  .clt-editor .clt-search-row label { flex-basis: 100%; }
+  .clt-editor .clt-grid { grid-template-columns: minmax(0, 1fr); }
+  .clt-editor .clt-age-row { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .clt-editor .clt-age-heading > button { width: 100%; }
+  .clt-editor .clt-documents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clt-editor .clt-bank > summary { padding: 14px; gap: 10px; }
+  .clt-editor .clt-bank-body { padding: 16px; }
+  .clt-editor .clt-bank-footer { align-items: stretch; }
+  .clt-editor .clt-bank-footer > * { flex: 1 1 100%; }
+}

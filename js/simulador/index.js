@@ -11,6 +11,7 @@ import { initCalculadoraFator } from './calculadora-fator-ui.js';
 import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fatores-modelo.js';
 import { tabelaAtendePublico } from './publico-tabelas.js';
 import { initPesquisaOutros } from './pesquisa-outros-convenios.js?v=20261021-origem-2';
+import { initPesquisaClt } from './pesquisa-clt.js';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -69,8 +70,9 @@ export async function initSimulador() {
   let fatorDigitado = '';
   let multiplas;
   let selecaoCondicoes;
-  let consultaOutrosAtiva = false;
-  let bancoOutros = null;
+  let consultaExternaAtiva = false;
+  let origemConsulta = 'inss';
+  let bancoExterno = null;
   const contextosConsulta = {};
   const camposContexto = ['slBanco','slOrigemFator','slOperacao','slPrazo','slTabela','slSeguro',
     'inpFatorManual','inpPrazoManual','inpTabelaManual','inpTaxaManual','inpValorDesejado','inpValorMargem'];
@@ -87,10 +89,10 @@ export async function initSimulador() {
     select.disabled = !items.length;
   }
 
-  function registro() { return consultaOutrosAtiva ? (banco.value === bancoOutros?.valor ? bancoOutros : null) : bancos.find(b => b.valor === banco.value); }
-  function dadosBanco() { return consultaOutrosAtiva ? {} : base[registro()?.chaveFator] || {}; }
+  function registro() { return consultaExternaAtiva ? (banco.value === bancoExterno?.valor ? bancoExterno : null) : bancos.find(b => b.valor === banco.value); }
+  function dadosBanco() { return consultaExternaAtiva ? {} : base[registro()?.chaveFator] || {}; }
   function listaAtual(reg = registro(), tipo = operacao.value, filtros = perfilSelecionado?.filtros) {
-    if (consultaOutrosAtiva) return []; // Outros Convênios usa apenas fator manual, nunca tabelas INSS.
+    if (consultaExternaAtiva) return []; // Outros Convênios e CLT não reutilizam tabelas INSS.
     const dados = base[reg?.chaveFator];
     if (!dados?.fatores || !['margem', 'cartao'].includes(tipo)) return [];
     const publicoCliente = filtros || {
@@ -132,9 +134,9 @@ export async function initSimulador() {
       if (!suspenso) bancos.push({ nome, chaveFator: nome, valor: nome });
     });
     bancos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-    if (consultaOutrosAtiva) {
-      opcoes(banco,bancoOutros ? [{label: bancoOutros.nome + ' · ' + bancoOutros.convenio, value: bancoOutros.valor}] : [],'Escolher banco pela pesquisa');
-      banco.value=bancoOutros?.valor || '';
+    if (consultaExternaAtiva) {
+      opcoes(banco,bancoExterno ? [{label: bancoExterno.nome + ' · ' + bancoExterno.convenio, value: bancoExterno.valor}] : [],'Escolher banco pela pesquisa');
+      banco.value=bancoExterno?.valor || '';
       selecaoCondicoes?.atualizar();
       return;
     }
@@ -191,7 +193,7 @@ export async function initSimulador() {
 
   function atualizarIdentidade() {
     const nome = registro()?.nome;
-    el('resBancoNome').textContent = nome ? nome + (consultaOutrosAtiva && registro()?.convenio ? ' · ' + registro().convenio : '') : 'Simulação manual';
+    el('resBancoNome').textContent = nome ? nome + (consultaExternaAtiva && registro()?.convenio ? ' · ' + registro().convenio : '') : 'Simulação manual';
     if (nome) definirLogo(el('resLogoBanco'), nome, dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo);
     else el('resLogoBanco').hidden = true;
     el('resLogoBanco').closest('.resultado-logo').hidden = !nome;
@@ -296,7 +298,7 @@ export async function initSimulador() {
   }
 
   banco.addEventListener('change', () => {
-    if (consultaOutrosAtiva && banco.value !== bancoOutros?.valor) bancoOutros=null;
+    if (consultaExternaAtiva && banco.value !== bancoExterno?.valor) bancoExterno=null;
     perfilSelecionado = null; selecionarBanco(); simular(true);
   });
   prazo.addEventListener('change', () => { atualizarTabelas(); limparResultado(); simular(true); });
@@ -352,8 +354,8 @@ export async function initSimulador() {
       porParcela: modoParcela.checked,
       operacao: operacao.value,
       banco: banco.value,
-      nomeBanco: registro()?.nome ? registro().nome + (consultaOutrosAtiva ? ' · ' + registro().convenio : '') : '',
-      logo: consultaOutrosAtiva ? bancoOutros?.logo
+      nomeBanco: registro()?.nome ? registro().nome + (consultaExternaAtiva ? ' · ' + registro().convenio : '') : '',
+      logo: consultaExternaAtiva ? bancoExterno?.logo
         : dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo,
       seguro: (dadosBanco().seguros || [])[Number.parseInt(seguro.value, 10)] || null,
       opcoes: listaAtual(),
@@ -365,16 +367,16 @@ export async function initSimulador() {
   });
   montarBancos(); selecionarBanco();
   selecaoCondicoes = initSelecaoCondicoes({ root, getContexto: () => ({
-    bancos, manual: origem.value === 'manual', outros: consultaOutrosAtiva, operacao: operacao.value, opcoes: listaAtual(),
+    bancos, manual: origem.value === 'manual', outros: consultaExternaAtiva, operacao: operacao.value, opcoes: listaAtual(),
     nomeBanco: registro()?.nome || '',
-    logo: consultaOutrosAtiva ? bancoOutros?.logo
+    logo: consultaExternaAtiva ? bancoExterno?.logo
       : dadosBanco().logoArquivo || dadosBanco().logo || registro()?.regra?.logoArquivo || registro()?.regra?.logo
   }) });
   let ultimoPerfil = '';
   const pesquisa = initPesquisaBancos({
     getBancos: () => regras,
     aoFiltrar: filtros => {
-      if (consultaOutrosAtiva) return;
+      if (consultaExternaAtiva) return;
       const chave = JSON.stringify([filtros.idade, filtros.especie, filtros.assina, filtros.prods]);
       if (chave === ultimoPerfil) return;
       ultimoPerfil = chave;
@@ -389,7 +391,7 @@ export async function initSimulador() {
       return tipos.some(tipo => listaAtual(reg, tipo, filtros).some(linha => !/^\d+$/.test(alvo) || Number(linha.prazo) === Number(alvo)));
     },
     aoSelecionar: (regra, filtros, _blocos, correspondente) => {
-      if (consultaOutrosAtiva) return;
+      if (consultaExternaAtiva) return;
       const reg = bancos.find(b => b.regra === regra || chaveBanco(b.nome) === chaveBanco(regra.nomeBanco));
       if (!reg) return;
       perfilSelecionado = { filtros };
@@ -419,19 +421,25 @@ export async function initSimulador() {
     }
   });
 
-  function trocarConsulta(outros) {
-    if (consultaOutrosAtiva === outros) return;
-    const antes = consultaOutrosAtiva ? 'outros' : 'inss';
+  function trocarConsulta(novaOrigem) {
+    if (origemConsulta === novaOrigem) return;
+    const antes = origemConsulta;
     contextosConsulta[antes] = {
       valores: Object.fromEntries(camposContexto.map(id=>[id,el(id).value])),
-      porParcela: modoParcela.checked, perfil: perfilSelecionado, fatorDigitado
+      porParcela: modoParcela.checked, perfil: perfilSelecionado, fatorDigitado, bancoExterno
     };
-    consultaOutrosAtiva=outros;
-    const salvo=contextosConsulta[outros ? 'outros' : 'inss'];
+    origemConsulta = novaOrigem;
+    const outros = novaOrigem !== 'inss';
+    consultaExternaAtiva=outros;
+    const salvo=contextosConsulta[novaOrigem];
+    bancoExterno = outros ? salvo?.bancoExterno || null : null;
     perfilSelecionado=outros ? null : salvo?.perfil || null;
     origem.querySelector('[value=tabela]').disabled=outros;
     el('sim-base-status').hidden=outros;
-    root.querySelector('.sim-hero-copy h1').textContent=outros ? 'Simulador — Outros Convênios' : 'Simulador INSS';
+    root.querySelector('.sim-hero-copy h1').textContent=novaOrigem === 'clt' ? 'Simulador — CLT' : outros ? 'Simulador — Outros Convênios' : 'Simulador INSS';
+    root.querySelector('.sim-hero-copy > p:not([id])').textContent = outros
+      ? 'Consulte os requisitos do banco e simule com o fator manual informado.'
+      : 'Calcule parcelas e valores liberados com os fatores vigentes.';
     montarBancos();
     const valores=salvo?.valores || {};
     for (const id of camposContexto) {
@@ -453,21 +461,24 @@ export async function initSimulador() {
     if ([...seguro.options].some(o=>o.value===valores.slSeguro)) seguro.value=valores.slSeguro;
     if (!outros) pesquisa.atualizar();
     simular(true);
-    if (outros && !bancoOutros) avisar('Pesquise um convênio e informe o fator manual. Esta consulta não usa tabelas nem seguros do INSS.');
+    if (outros && !bancoExterno) avisar(novaOrigem === 'clt'
+      ? 'Informe o tempo de empresa, escolha um banco CLT e use o fator manual. Não são usadas tabelas nem seguros do INSS.'
+      : 'Pesquise um convênio e informe o fator manual. Esta consulta não usa tabelas nem seguros do INSS.');
   }
   initPesquisaOutros({
-    root, aoOrigem: trocarConsulta,
+    root,
     aoFiltrar: () => {
-      if (!bancoOutros) return;
-      bancoOutros=null;
+      if (origemConsulta !== 'outros') return;
+      if (!bancoExterno) return;
+      bancoExterno=null;
       fator.value=''; fatorDigitado=''; el('inpPrazoManual').value='';
       tabelaManual.value=''; taxaManual.value='';
       montarBancos(); limparResultado();
       avisar('Filtros alterados. Escolha novamente uma condição de Outros Convênios.');
     },
     aoSelecionar: item => {
-      if (!consultaOutrosAtiva) return;
-      bancoOutros={nome:item.banco.nome, convenio:item.convenio.nome || 'Convênio sem nome', logo:item.logo,
+      if (origemConsulta !== 'outros') return;
+      bancoExterno={nome:item.banco.nome, convenio:item.convenio.nome || 'Convênio sem nome', logo:item.logo,
         valor:'outros:' + (item.banco.banco_id || item.banco.nome) + ':' + item.convenio.id};
       perfilSelecionado=null;
       montarBancos();
@@ -484,7 +495,48 @@ export async function initSimulador() {
     }
   });
 
-  // As entradas ficam disponíveis enquanto as duas bases são atualizadas.
+  initPesquisaClt({ root,
+    aoFiltrar: () => {
+      if (origemConsulta !== 'clt') {
+        // Atualização da base também invalida uma seleção CLT guardada em outra aba de consulta.
+        if (contextosConsulta.clt?.bancoExterno) delete contextosConsulta.clt;
+        return;
+      }
+      if (!bancoExterno) return;
+      bancoExterno = null; fator.value = ''; fatorDigitado = '';
+      el('inpPrazoManual').value = ''; tabelaManual.value = ''; taxaManual.value = '';
+      montarBancos(); limparResultado();
+      avisar('Filtros CLT alterados. Escolha novamente um banco compatível.');
+    },
+    aoSelecionar: item => {
+      if (origemConsulta !== 'clt') return;
+      bancoExterno = { nome: item.banco.nome, convenio: 'CLT', logo: item.logo, valor: 'clt:' + item.banco.banco_id };
+      perfilSelecionado = null; montarBancos();
+      operacao.value = 'margem'; origem.value = 'manual';
+      fator.value = ''; fatorDigitado = ''; tabelaManual.value = ''; taxaManual.value = ''; el('inpPrazoManual').value = '';
+      selecionarBanco();
+      avisar('Banco CLT selecionado. Informe o fator e o prazo manualmente; confira documentos, seguro e eventuais requisitos pendentes.');
+      el('sim-operacao').open = true;
+      el('sim-operacao').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      fator.focus({ preventScroll: true });
+    }
+  });
+  function sincronizarConsulta(reabrir = false) {
+    const origemAtual = root.querySelector('[name=simBaseConsulta]:checked')?.value || 'inss';
+    const paineis = { inss: 'sim-pesquisa-bancos', outros: 'sim-pesquisa-outros', clt: 'sim-pesquisa-clt' };
+    for (const [nome, id] of Object.entries(paineis)) {
+      el(id).hidden = nome !== origemAtual;
+      if (nome === origemAtual && reabrir) el(id).open = true;
+    }
+    trocarConsulta(origemAtual);
+  }
+  root.querySelectorAll('[name=simBaseConsulta]').forEach(input => {
+    input.addEventListener('change', () => sincronizarConsulta(true));
+    input.addEventListener('click', () => { if (input.checked) sincronizarConsulta(true); });
+  });
+  sincronizarConsulta();
+
+  // As entradas ficam disponíveis enquanto as bases INSS são atualizadas.
   const [fatoresRemotos, regrasRemotas] = await Promise.allSettled([
     comLimite(carregarFatoresRemotos()),
     comLimite(carregarBaseInss({ useFallback: false }))

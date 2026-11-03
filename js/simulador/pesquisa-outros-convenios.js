@@ -68,7 +68,7 @@ export function pesquisarOutrosConvenios(bancos, filtros) {
   return resultados;
 }
 
-export function initPesquisaOutros({ root, aoOrigem, aoSelecionar, aoFiltrar }) {
+export function initPesquisaOutros({ root, aoSelecionar, aoFiltrar }) {
   const el = id => root.querySelector('#' + id);
   const form = el('sim-outros-form');
   if (!form) return;
@@ -135,28 +135,11 @@ export function initPesquisaOutros({ root, aoOrigem, aoSelecionar, aoFiltrar }) 
       results.append(card);
     }
   }
-  function sincronizarOrigem(reabrir = false) {
-    const outros = root.querySelector('[name=simBaseConsulta]:checked')?.value === 'outros';
-    el('sim-pesquisa-bancos').hidden=outros;
-    el('sim-pesquisa-outros').hidden=!outros;
-    if (reabrir || outros) el(outros ? 'sim-pesquisa-outros' : 'sim-pesquisa-bancos').open=true;
-    aoOrigem(outros);
-    if (outros) pesquisar(false);
-  }
-  root.querySelectorAll('[name=simBaseConsulta]').forEach(input => {
-    input.addEventListener('change',()=>sincronizarOrigem(true));
-    input.addEventListener('click',()=> {
-      if (input.checked) el(input.value === 'outros' ? 'sim-pesquisa-outros' : 'sim-pesquisa-bancos').open=true;
-    });
-  });
   form.addEventListener('submit',e=>{e.preventDefault(); clearTimeout(timer); pesquisar();});
   form.addEventListener('change',()=>{clearTimeout(timer); pesquisar();});
   form.addEventListener('input',()=>{clearTimeout(timer); timer=setTimeout(pesquisar,180);});
   form.addEventListener('reset',()=>{clearTimeout(timer); timer=setTimeout(pesquisar,0);});
   pesquisar(false);
-  // O usuário ou o navegador pode ter marcado a opção antes dos módulos carregarem.
-  // Registrar somente o evento change deixaria esse estado sem painel correspondente.
-  sincronizarOrigem();
   carregarBaseOutros().then(lista => {
     if (!root.isConnected) return;
     bancos=lista; fonte='Base Outros Convênios consultada no Supabase.';

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Base CLT — Ominidata</title>
+  <link rel="icon" href="../imagens/logos/logo.png" type="image/png">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/layout-operacional.css">
+  <link rel="stylesheet" href="../css/base-clt.css">
+</head>
+<body class="od-page">
+  <button id="menuBtn" class="menu-btn" aria-label="Abrir menu de navegação">&#9776;</button>
+  <nav id="sidebar" class="sidebar" aria-label="Menu principal"></nav>
+  <div class="wrap" inert>
+    <header class="header od-hero">
+      <div class="od-brand">
+        <div class="logo-wrap"><div class="rot-bg" aria-hidden="true"></div><img src="../imagens/logos/logo.png" alt="Ominidata" class="logo-img"></div>
+        <div><span class="od-eyebrow">Gestão operacional</span><h1>Base CLT</h1><p>Reúna os requisitos de cada banco para clientes com carteira assinada.</p></div>
+      </div>
+      <span class="od-badge">Cadastro de regras CLT</span>
+    </header>
+    <main class="panel clt-editor" id="clt-editor">
+      <div class="od-toolbar">
+        <div><span class="od-eyebrow">Bancos e condições</span><h2>Regras para a operação CLT</h2><p>Abra um banco para consultar ou editar seus requisitos.</p></div>
+        <div class="od-actions">
+          <label class="od-file-control">Importar JSON<input id="clt-importar" type="file" accept=".json,application/json" aria-label="Importar base CLT JSON"></label>
+          <button type="button" class="od-secondary" id="clt-exportar">Exportar JSON</button>
+          <button type="button" id="clt-adicionar">+ Novo banco</button>
+        </div>
+      </div>
+      <div class="clt-local-note"><strong>Da edição à pesquisa CLT</strong><p>Editar salva um rascunho neste navegador. Envie diretamente ao Supabase para publicar no simulador. Sincronizar carrega a versão publicada; rascunhos diferentes só são substituídos com sua confirmação.</p>
+        <div class="od-actions clt-sync-actions"><button type="button" class="od-secondary" id="clt-sincronizar">Sincronizar com Supabase</button><button type="button" id="clt-enviar">Enviar base ao Supabase</button></div>
+        <p id="clt-remoto-status" role="status" aria-live="polite">Consultando a Base CLT publicada…</p>
+      </div>
+      <div class="clt-search-row">
+        <label for="clt-busca">Pesquisar banco<input id="clt-busca" type="search" placeholder="Digite o nome do banco" autocomplete="off"></label>
+        <span id="clt-contagem" class="od-badge" aria-live="polite"></span>
+      </div>
+      <p class="clt-status" id="clt-status" role="status" aria-live="polite"></p>
+      <p class="clt-hint">Campo vazio significa requisito não informado. Use 0 quando não houver tempo mínimo ou mínimo de funcionários.</p>
+      <div id="clt-lista"></div>
+      <div id="clt-vazio" class="clt-empty"><strong>Nenhum banco cadastrado</strong><p>Adicione o primeiro banco para organizar suas regras CLT.</p></div>
+      <div id="clt-sem-resultados" class="clt-empty" hidden>Nenhum banco encontrado para essa pesquisa.</div>
+      <div class="clt-bottom-actions"><button type="button" class="od-secondary" id="clt-adicionar-fim">+ Novo banco</button></div>
+    </main>
+  </div>
+  <script type="module">
+    import { requirePageAccess, finishPageAccess } from '../js/auth/accessControl.js';
+    import { criarMenuLateral } from '../js/components/menuLateral.js';
+    if (await requirePageAccess()) {
+      const { initBaseClt } = await import('../js/clt/base-clt.js');
+      criarMenuLateral();
+      await initBaseClt();
+      finishPageAccess();
+    }
+  </script>
+</body>
+</html>

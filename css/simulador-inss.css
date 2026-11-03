@@ -193,6 +193,14 @@
 .simulador-page .sim-bank-results.has-speed:not(.is-advanced) > .sim-bank-card { height: 272px; }
 .simulador-page .sim-bank-results.has-speed:not(.is-advanced) > .sim-bank-card.is-expanded { height: auto; min-height: 272px; }
 .simulador-page .sim-outros-card { height: 320px; }
+.simulador-page .sim-clt-fields { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.simulador-page .sim-clt-primary { padding: 10px; border: 1px solid #277aaa; border-radius: 10px; background: #0d3044; }
+.simulador-page .sim-clt-primary small, .simulador-page .sim-clt-perfil { color: var(--sim-muted); font-size: .7rem; line-height: 1.5; }
+.simulador-page .sim-clt-card { height: 310px; }
+.simulador-page #sim-clt-results { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.simulador-page .sim-clt-card.is-expanded { height: auto; min-height: 310px; }
+.simulador-page .sim-clt-pendencia { margin: 4px 0; font-size: .68rem; line-height: 1.5; color: #d6c58f; text-align: center; }
+.simulador-page .sim-clt-card .sim-bank-advanced-body p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .simulador-page .sim-outros-card.is-expanded { height: auto; min-height: 320px; }
 .simulador-page .sim-outros-context { display: block; color: var(--sim-muted); font-size: .72rem; line-height: 1.4; overflow-wrap: anywhere; }
 .simulador-page .sim-outros-card .sim-bank-advanced-body p { white-space: pre-wrap; overflow-wrap: anywhere; }

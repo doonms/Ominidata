@@ -4,7 +4,7 @@ import '../utils/registrar-sw.js';
 const PERFIS = new Set(["master", "admin", "consulta"]);
 const ADMIN_PAGES = new Set([
   "base-fatores.html", "fatores-do-dia.html", "base-inss.html",
-  "base-credito-pessoal.html", "base-outros-convenios.html",
+  "base-credito-pessoal.html", "base-outros-convenios.html", "base-clt.html",
   "base-inss-admin.html", "importar-inss.html", "ajustes.html"
 ]);
 let pendingRequest = null;

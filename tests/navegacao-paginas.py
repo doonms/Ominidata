@@ -20,6 +20,7 @@ ROUTES = {
     'base_fatores': ('pages/base-fatores.html', '#bf-slBanco'),
     'fatores_do_dia': ('pages/fatores-do-dia.html', '#bf-slBanco'),
     'base_inss': ('pages/base-inss.html', '#list .card'),
+    'base_clt': ('pages/base-clt.html', '#clt-adicionar'),
     'contatos': ('pages/contatos.html', '#bankList .bank-card'),
     'bancos': ('pages/bancos.html', '#summaryPanel .summary-card'),
     'base_outros_convenios': ('pages/base-outros-convenios.html', '#uploadBaseOutrosBtn'),
@@ -76,7 +77,7 @@ def main():
                 print(f'PASS: abertura direta das {len(ROUTES)} páginas em {prefix or "/"}')
 
                 page.goto(base + '/index.html')
-                for name in ['simulador', 'base_fatores', 'base_inss', 'contatos', 'bancos',
+                for name in ['simulador', 'base_fatores', 'base_inss', 'base_clt', 'contatos', 'bancos',
                              'base_outros_convenios', 'pesquisa', 'base_credito', 'simulador',
                              'pesquisa', 'contatos', 'fatores_do_dia', 'base_fatores', 'base_inss', 'home']:
                     page.locator('#menuBtn').click()
@@ -87,7 +88,7 @@ def main():
                     page.wait_for_timeout(250)
                     actual = page.evaluate(SNAPSHOT)
                     assert actual == baselines[name], json.dumps({'route': name, 'expected': baselines[name], 'actual': actual}, ensure_ascii=False)
-                print(f'PASS: 15 trocas pelo menu sem estilos acumulados em {prefix or "/"}')
+                print(f'PASS: 16 trocas pelo menu sem estilos acumulados em {prefix or "/"}')
 
                 page.go_back()
                 expect(page.locator('#list .card').first).to_be_visible()

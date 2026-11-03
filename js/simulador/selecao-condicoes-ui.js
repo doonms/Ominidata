@@ -15,7 +15,7 @@ export function initSelecaoCondicoes({ root, getContexto }) {
   function renderBancos(ctx) {
     buscaBanco.disabled = ctx.outros;
     if (ctx.outros) {
-      el('sim-bank-options-count').textContent = 'Escolha pela pesquisa de convênios';
+      el('sim-bank-options-count').textContent = 'Escolha pela pesquisa acima';
       return;
     }
     const anterior = banco.value;

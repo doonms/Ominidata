@@ -35,6 +35,7 @@ export function criarMenuLateral() {
   const fatoresHref = buildLink('pages/base-fatores.html');
   const fatoresDoDiaHref = buildLink('pages/fatores-do-dia.html');
   const inssHref = buildLink('pages/base-inss.html');
+  const cltHref = buildLink('pages/base-clt.html');
   const creditoHref = buildLink('pages/base-credito-pessoal.html');
   const outrosConveniosHref = buildLink('pages/base-outros-convenios.html');
   const bancosHref = buildLink('pages/bancos.html');
@@ -53,6 +54,7 @@ export function criarMenuLateral() {
     <a class="admin-only" href="${fatoresHref}" data-nav="base_fatores">&#128201; Base de Fatores</a>
     <a class="admin-only" href="${fatoresDoDiaHref}" data-nav="fatores_do_dia">&#128198; Fatores do Dia</a>
     <a class="admin-only" href="${inssHref}" data-nav="base_inss">&#128200; Base INSS</a>
+    <a class="admin-only" href="${cltHref}" data-nav="base_clt">&#128188; Base CLT</a>
     <a class="admin-only" href="${creditoHref}" data-nav="base_credito">&#128179; Crédito Pessoal</a>
     <a class="admin-only" href="${outrosConveniosHref}" data-nav="base_outros_convenios">&#128221; Outros Convênios</a>
     <a class="publico" href="${bancosHref}" data-nav="bancos">&#128181; Bancos</a>

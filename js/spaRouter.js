@@ -119,6 +119,12 @@ const pageInitializers = {
     const mod = await import('./main.js');
     mod.initBase?.();
   },
+  'pages/base-clt.html': async () => {
+    const { carregarMenuLateral } = await import('./components/menuLateral.js');
+    carregarMenuLateral();
+    const { initBaseClt } = await import('./clt/base-clt.js');
+    await initBaseClt();
+  },
   'pages/base-credito-pessoal.html': async () => {
     ensureStyle('css/style.css');
     const { carregarMenuLateral } = await import('./components/menuLateral.js');
@@ -205,7 +211,7 @@ async function runPageInitializer(href) {
   document.body.classList.toggle('pesquisa-page', clean === 'pages/pesquisa.html');
   document.body.classList.toggle('usuarios-page', clean === 'pages/usuarios.html');
   document.body.classList.toggle('od-page', [
-    'index.html', 'pages/base-inss.html', 'pages/base-outros-convenios.html',
+    'index.html', 'pages/base-inss.html', 'pages/base-outros-convenios.html', 'pages/base-clt.html',
     'pages/base-credito-pessoal.html', 'pages/contatos.html', 'pages/bancos.html', 'pages/usuarios.html'
   ].includes(clean));
   const init = pageInitializers[clean];
@@ -288,6 +294,7 @@ export function iniciarSPA() {
     base_fatores: 'pages/base-fatores.html',
     fatores_do_dia: 'pages/fatores-do-dia.html',
     base_inss: 'pages/base-inss.html',
+    base_clt: 'pages/base-clt.html',
     base_credito: 'pages/base-credito-pessoal.html',
     base_outros_convenios: 'pages/base-outros-convenios.html',
     bancos: 'pages/bancos.html',

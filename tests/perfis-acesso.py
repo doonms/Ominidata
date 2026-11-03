@@ -81,7 +81,7 @@ def main():
                         expect(page.locator('#sidebar .admin-only')).to_have_count(0)
                     else:
                         expect(page.locator('#sidebar a[data-nav=base_inss]')).to_be_visible()
-                        expect(page.locator('#sidebar .admin-only')).to_have_count(5)
+                        expect(page.locator('#sidebar .admin-only')).to_have_count(6)
                     assert page.evaluate("localStorage.getItem('ominidata_role')")==role
                     mod=page.evaluate("""async()=>{
                       const m=await import(new URL('../js/auth/accessControl.js',location.href.replace('index.html','pages/login.html')));
@@ -102,7 +102,7 @@ def main():
                 print(f'PASS: login e menus de Master/Admin/Consulta, sem autorização por email/metadata ({prefix or "/"})')
 
                 ctx,page,errors=fresh(__perfil='consulta')
-                for path in ['base-fatores','fatores-do-dia','base-inss','base-outros-convenios','base-credito-pessoal','importar-inss','%62ase-inss']:
+                for path in ['base-fatores','fatores-do-dia','base-inss','base-outros-convenios','base-credito-pessoal','base-clt','importar-inss','%62ase-inss']:
                     page.goto(base+f'/pages/{path}.html')
                     expect(page).to_have_url(base+'/pages/pesquisa.html')
                     expect(page.locator('#btn-search')).to_be_visible()
