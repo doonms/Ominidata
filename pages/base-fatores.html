@@ -115,6 +115,18 @@
             <button id="bf-calcLimpar" class="small secondary" type="button">Limpar cálculo</button>
           </div>
 
+          <div class="bf-injection-targets">
+            <div class="bf-injection-heading"><strong>Injetar fator nas tabelas</strong><small>1. Marque as tabelas abaixo · 2. Escolha o prazo · 3. Calcule e injete</small></div>
+            <p id="bf-injecao-resumo" class="bf-injection-summary" aria-live="polite">Marque as tabelas que receberão o fator.</p>
+            <div class="bf-injection-fields">
+              <label>Modalidade<select id="bf-injecao-tipo"><option value="margem">Margem</option><option value="cartao">Cartão</option></select></label>
+              <label>Prazo<select id="bf-injecao-prazo"><option value="">Escolha o prazo</option></select></label>
+              <label hidden>Prazo personalizado<input id="bf-injecao-personalizado" type="number" min="1" step="1" placeholder="Meses"/></label>
+              <label>Taxa compartilhada (%)<input id="bf-injecao-taxa" type="text" inputmode="decimal" autocomplete="off" placeholder="Sem taxa"/></label>
+            </div>
+            <p class="bf-link-help">A taxa começa com o valor do prazo na tabela de referência. Você pode alterá-la; vazio significa sem taxa. A taxa não é calculada pela parcela e pelo valor liberado.</p>
+          </div>
+
           <div class="bf-calculator-form">
             <div class="bf-calc-field">
               <label for="bf-calcParcela">Parcela</label>
@@ -151,6 +163,10 @@
           <div id="bf-calcStatus" class="bf-calc-status" role="status" aria-live="polite">
             Use parcela ÷ fator para encontrar o valor liberado.
           </div>
+          <div class="bf-injection-footer">
+            <p id="bf-injecao-status" role="status" aria-live="polite">Selecione as tabelas e o prazo para injetar o fator calculado.</p>
+            <button id="bf-injecao-aplicar" class="primary" type="button" disabled>Injetar fator calculado</button>
+          </div>
         </section>
 
         <!-- INSS -->
@@ -164,7 +180,7 @@
           </div>
 
           <!-- BLOCO MARGEM -->
-          <p class="bf-link-help">Cada tabela tem seus próprios prazos. No vínculo em lote, apenas fatores de prazos iguais são compartilhados; nomes e taxas não mudam.</p>
+          <p class="bf-link-help">Selecione as tabelas para injetar o fator pela calculadora. Fator e taxa ficam sincronizados por prazo; nomes e público continuam independentes.</p>
           <p id="bf-vinculos-status" class="bf-link-feedback" role="status" aria-live="polite"></p>
           <div id="bf-blocoMargem" class="factor-block">
             <div class="bf-block-heading">

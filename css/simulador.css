@@ -825,6 +825,29 @@ button.small {
   gap: 10px;
 }
 
+.base-fatores-page .bf-injection-targets {
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(70, 178, 255, .22);
+  border-radius: 12px;
+  background: rgba(2, 15, 24, .35);
+}
+.base-fatores-page .bf-injection-heading { display: grid; gap: 5px; }
+.base-fatores-page .bf-injection-heading strong { color: #d7ecff; font-size: .9rem; }
+.base-fatores-page .bf-injection-heading small,
+.base-fatores-page .bf-injection-summary { color: var(--bf-muted); font-size: .74rem; line-height: 1.5; }
+.base-fatores-page .bf-injection-summary { max-height: 96px; overflow: auto; overflow-wrap: anywhere; margin: 10px 0; }
+.base-fatores-page .bf-injection-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); gap: 10px; }
+.base-fatores-page .bf-injection-fields label { display: grid; gap: 6px; min-width: 0; color: #cce5f6; font-size: .73rem; font-weight: 700; }
+.base-fatores-page .bf-injection-fields label[hidden] { display: none; }
+.base-fatores-page .bf-injection-fields input,
+.base-fatores-page .bf-injection-fields select { width: 100%; min-width: 0; min-height: 42px; border: 1px solid rgba(148, 194, 224, .25); border-radius: 8px; padding: 9px; background: #061724; color: var(--bf-text); font: inherit; }
+.base-fatores-page .bf-injection-fields :is(input, select):focus-visible { outline: 2px solid #64bcff; outline-offset: 2px; }
+.base-fatores-page .bf-injection-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 12px; margin-top: 12px; border-top: 1px solid rgba(148, 194, 224, .15); }
+.base-fatores-page .bf-injection-footer p { flex: 1 1 240px; min-width: 0; margin: 0; color: var(--bf-muted); font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.base-fatores-page .bf-injection-footer .is-success { color: #7de1be; }
+.base-fatores-page .bf-injection-footer button { flex: 0 1 auto; min-height: 42px; max-width: 100%; white-space: normal; }
+
 .base-fatores-page .bf-calc-field {
   min-width: 0;
   padding: 13px;

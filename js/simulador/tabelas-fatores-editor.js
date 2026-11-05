@@ -1,6 +1,6 @@
 import { PRAZOS_PADRAO, prazoPendente } from './cadastro-tabelas-fatores.js';
 import { parseNumeroCalculo, formatarFatorCalculo } from './calculadora-fator.js';
-import { tabelasVinculadas, atualizarFatorVinculado, desvincularFatoresEmLote } from './vinculos-fatores.js';
+import { tabelasVinculadas, atualizarFatorVinculado, atualizarTaxaVinculada, desvincularFatoresEmLote } from './vinculos-fatores.js';
 import { initVinculosTabelas } from './vinculos-tabelas-lote.js';
 import { normalizarPublico } from './publico-tabelas.js';
 
@@ -256,12 +256,29 @@ export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
         if (item !== linha && grupo.includes(item)) outro.querySelector('.fator').value = formatarFatorCalculo(linha.fator);
       });
       salvar();
-      if (grupo.length > 1) avisar(`Fator de ${linha.prazo}x atualizado em ${grupo.length} tabelas vinculadas. Taxas e nomes mantidos.`);
+      if (grupo.length > 1) avisar(`Fator de ${linha.prazo}x atualizado em ${grupo.length} tabelas vinculadas. Nomes mantidos.`);
     });
     campos.fator.addEventListener('blur', () => {
       if (tabelasVinculadas(linhas(tipo), linha).length > 1) campos.fator.value = formatarFatorCalculo(linha.fator);
     });
-    campos.taxa.addEventListener('input', () => { linha.taxa = campos.taxa.value; salvar(); });
+    campos.taxa.addEventListener('input', () => {
+      const todas = linhas(tipo);
+      const grupo = tabelasVinculadas(todas, linha);
+      if (!atualizarTaxaVinculada(todas, linha, campos.taxa.value)) {
+        avisar('Informe uma taxa válida, maior ou igual a zero, ou deixe o campo vazio. As taxas anteriores foram mantidas.', true);
+        return;
+      }
+      listasTipo[tipo].querySelectorAll('.bf-term-row').forEach(outro => {
+        const dono = getBanco().tabelas[tipo][[...listasTipo[tipo].children].indexOf(outro.closest('.bf-table-card'))];
+        const item = dono.prazos.find(p => Number(p.prazo) === Number(outro.dataset.prazo));
+        if (item !== linha && grupo.includes(item)) outro.querySelector('.taxa').value = campos.taxa.value;
+      });
+      salvar(); lote?.atualizar();
+      if (grupo.length > 1) avisar(`Taxa de ${linha.prazo}x atualizada em ${grupo.length} tabelas vinculadas. Nomes mantidos.`);
+    });
+    campos.taxa.addEventListener('blur', () => {
+      campos.taxa.value = typeof linha.taxa === 'number' ? linha.taxa.toLocaleString('pt-BR', { useGrouping: false, maximumFractionDigits: 8 }) : linha.taxa ?? '';
+    });
     row.prepend(prazo);
     const fim = document.createElement('div');
     fim.className = 'bf-term-actions';
@@ -275,5 +292,5 @@ export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
     row.appendChild(fim);
     return row;
   }
-  return { renderizar, adicionarTabela, limpar: () => { renderizar(); lote?.limpar(); } };
+  return { renderizar, adicionarTabela, limpar: () => { renderizar(); lote?.limpar(); }, atualizarCalculo: valido => lote?.atualizarCalculo(valido) };
 }

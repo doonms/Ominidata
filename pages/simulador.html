@@ -35,6 +35,13 @@
       <label class="sim-search-mode"><input type="radio" name="simBaseConsulta" value="outros"/><span><strong>Outros Convênios</strong><small>Prefeitura, Governo e SIAPE</small></span></label>
       <label class="sim-search-mode"><input type="radio" name="simBaseConsulta" value="clt"/><span><strong>CLT</strong><small>Tempo de empresa e requisitos</small></span></label>
     </fieldset>
+    <div class="sim-panels-view" role="group" aria-label="Visualização da pesquisa e simulação">
+      <span>Visualização</span>
+      <button type="button" data-sim-view="both" aria-pressed="true" aria-controls="sim-pesquisa-bancos sim-pesquisa-outros sim-pesquisa-clt sim-operacao">Ver os dois</button>
+      <button type="button" data-sim-view="search" aria-pressed="false" aria-controls="sim-pesquisa-bancos sim-pesquisa-outros sim-pesquisa-clt sim-operacao">Só encontrar banco</button>
+      <button type="button" data-sim-view="simulation" aria-pressed="false" aria-controls="sim-pesquisa-bancos sim-pesquisa-outros sim-pesquisa-clt sim-operacao">Só simulação</button>
+    </div>
+    <div class="sim-panels-layout is-split" id="sim-panels-layout" data-view="both">
     <details class="panel sim-search-panel" id="sim-pesquisa-bancos" aria-labelledby="sim-search-title" open>
       <summary class="sim-search-heading" aria-controls="sim-search-body">
         <div class="sim-side-title">
@@ -172,6 +179,7 @@
 
       <div id="sim-operation-body">
       <section class="sim-controls" aria-label="Dados da simulação">
+        <div class="sim-selection-pane">
         <section class="sim-bank-selection" aria-labelledby="sim-bank-selection-title">
           <div class="sim-selection-heading"><div><span class="sim-eyebrow">Instituição e condições</span><strong id="sim-bank-selection-title">Escolha o banco da simulação</strong></div><span id="sim-bank-options-count" class="sim-selection-count" aria-live="polite"></span></div>
           <div class="sim-bank-selection-fields">
@@ -273,6 +281,8 @@
           </div>
         </details>
 
+        </div>
+        <div class="sim-calculation-pane">
         <section class="sim-calculation-entry" aria-label="Valores para calcular a simulação">
           <div class="sim-calculation-head">
             <strong class="sim-calculation-entry-title">Valores da simulação</strong>
@@ -316,38 +326,6 @@
         </button>
         </div>
         </section>
-      </section>
-
-      <details class="sim-multiple-panel" id="sim-multiplas">
-        <summary>Simular vários prazos e tabelas <span>Monte uma comparação de condições</span><b id="sim-multi-selecionadas" class="sim-selection-count">0 selecionadas</b></summary>
-        <div class="sim-multiple-body">
-          <div class="sim-multi-context"><strong id="sim-multi-context-bank">Simulação manual</strong><span id="sim-multi-context-entry">Use o mesmo valor ou parcela em todas as condições.</span></div>
-          <div id="sim-multi-cadastradas" hidden>
-            <p class="sim-field-hint">Marque as tabelas do banco e da operação selecionados. A lista respeita os prazos disponíveis para o perfil carregado pela pesquisa.</p>
-            <div class="sim-multi-filters">
-              <div class="sim-field"><label for="sim-multi-busca">Buscar tabela para comparar</label><input type="search" id="sim-multi-busca" placeholder="Nome ou código da tabela" autocomplete="off" /></div>
-              <div class="sim-field"><label for="sim-multi-prazo">Filtrar por prazo</label><select id="sim-multi-prazo"><option value="">Todos os prazos</option></select></div>
-            </div>
-            <div class="sim-multi-actions">
-              <button type="button" class="secondary" id="sim-multi-todas">Selecionar visíveis</button>
-              <button type="button" class="secondary" id="sim-multi-limpar">Limpar seleção</button>
-              <span id="sim-multi-visiveis" class="sim-selection-count" aria-live="polite"></span>
-            </div>
-            <fieldset id="sim-multi-opcoes" class="sim-multi-options" aria-label="Prazos e tabelas para comparar"></fieldset>
-            <p id="sim-multi-vazio" class="sim-field-hint">Nenhuma tabela disponível. Escolha um banco com fatores cadastrados ou use o modo Fator manual.</p>
-            <p id="sim-multi-sem-busca" class="sim-field-hint" hidden>Nenhuma condição corresponde à busca. As opções já marcadas continuam selecionadas.</p>
-          </div>
-          <div id="sim-multi-manual">
-            <p class="sim-field-hint">Adicione opções com prazos, fatores ou nomes diferentes. Cada nova opção copia os dados manuais informados acima e pode ser editada separadamente.</p>
-            <div id="sim-multi-manuais"></div>
-            <button type="button" class="secondary" id="sim-multi-adicionar">Adicionar opção manual</button>
-          </div>
-          <div class="sim-multi-actions">
-            <p id="sim-multi-status" class="sim-form-status" role="status" aria-live="polite">Escolha as opções e gere a comparação com o valor ou parcela informado acima.</p>
-            <button type="button" class="primary" id="sim-multi-gerar" disabled>Gerar simulações</button>
-          </div>
-        </div>
-      </details>
 
         <section class="sim-result-card" id="sim-result" aria-label="Resultado da simulação" hidden>
           <div class="card-title sim-result-title">
@@ -411,6 +389,40 @@
           </div>
           <footer class="sim-result-footer">Simulado em <strong>Ominidata</strong></footer>
         </section>
+        </div>
+      </section>
+
+      <details class="sim-multiple-panel" id="sim-multiplas">
+        <summary>Simular vários prazos e tabelas <span>Monte uma comparação de condições</span><b id="sim-multi-selecionadas" class="sim-selection-count">0 selecionadas</b></summary>
+        <div class="sim-multiple-body">
+          <div class="sim-multi-context"><strong id="sim-multi-context-bank">Simulação manual</strong><span id="sim-multi-context-entry">Use o mesmo valor ou parcela em todas as condições.</span></div>
+          <div id="sim-multi-cadastradas" hidden>
+            <p class="sim-field-hint">Marque as tabelas do banco e da operação selecionados. A lista respeita os prazos disponíveis para o perfil carregado pela pesquisa.</p>
+            <div class="sim-multi-filters">
+              <div class="sim-field"><label for="sim-multi-busca">Buscar tabela para comparar</label><input type="search" id="sim-multi-busca" placeholder="Nome ou código da tabela" autocomplete="off" /></div>
+              <div class="sim-field"><label for="sim-multi-prazo">Filtrar por prazo</label><select id="sim-multi-prazo"><option value="">Todos os prazos</option></select></div>
+            </div>
+            <div class="sim-multi-actions">
+              <button type="button" class="secondary" id="sim-multi-todas">Selecionar visíveis</button>
+              <button type="button" class="secondary" id="sim-multi-limpar">Limpar seleção</button>
+              <span id="sim-multi-visiveis" class="sim-selection-count" aria-live="polite"></span>
+            </div>
+            <fieldset id="sim-multi-opcoes" class="sim-multi-options" aria-label="Prazos e tabelas para comparar"></fieldset>
+            <p id="sim-multi-vazio" class="sim-field-hint">Nenhuma tabela disponível. Escolha um banco com fatores cadastrados ou use o modo Fator manual.</p>
+            <p id="sim-multi-sem-busca" class="sim-field-hint" hidden>Nenhuma condição corresponde à busca. As opções já marcadas continuam selecionadas.</p>
+          </div>
+          <div id="sim-multi-manual">
+            <p class="sim-field-hint">Adicione opções com prazos, fatores ou nomes diferentes. Cada nova opção copia os dados manuais informados acima e pode ser editada separadamente.</p>
+            <div id="sim-multi-manuais"></div>
+            <button type="button" class="secondary" id="sim-multi-adicionar">Adicionar opção manual</button>
+          </div>
+          <div class="sim-multi-actions">
+            <p id="sim-multi-status" class="sim-form-status" role="status" aria-live="polite">Escolha as opções e gere a comparação com o valor ou parcela informado acima.</p>
+            <button type="button" class="primary" id="sim-multi-gerar" disabled>Gerar simulações</button>
+          </div>
+        </div>
+      </details>
+
       <section class="sim-multi-results" id="sim-multi-results" aria-labelledby="sim-multi-title" hidden>
         <div class="sim-multi-results-heading">
           <div><strong id="sim-multi-title">Comparação de simulações</strong><span id="sim-multi-quantidade" class="sim-result-badge"></span></div>
@@ -421,6 +433,7 @@
       </section>
       </div>
     </details>
+    </div>
 
   </div>
 

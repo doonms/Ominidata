@@ -40,6 +40,16 @@
 .simulador-page .sim-workspace,
 .simulador-page .sim-search-panel { display: block; padding: 20px; border: 1px solid var(--sim-border); border-radius: 16px; background: rgba(10, 27, 39, 0.94); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15); }
 .simulador-page .sim-controls { display: block; width: 100%; min-width: 0; padding: 0; margin: 0; background: none; border: 0; }
+.simulador-page .sim-selection-pane, .simulador-page .sim-calculation-pane { min-width: 0; }
+.simulador-page .sim-panels-view { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.simulador-page .sim-panels-view > span { color: var(--sim-muted); font-size: .72rem; margin-right: 4px; }
+.simulador-page .sim-panels-view > button { min-height: 38px; padding: 8px 13px; border: 1px solid #294b61; border-radius: 9px; color: #c1deef; background: #0c2535; font-size: .73rem; }
+.simulador-page .sim-panels-view > button[aria-pressed=true] { border-color: #299ee8; color: #eef8ff; background: #103c58; }
+.simulador-page .sim-panels-view > button:focus-visible { outline: 2px solid #66c2ff; outline-offset: 3px; }
+.simulador-page .sim-panels-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 16px; }
+.simulador-page .sim-panels-layout > .panel { min-width: 0; margin: 0; }
+.simulador-page .sim-panels-layout > details:not([open]):not([hidden]) { order: -1; }
+.simulador-page .sim-selection-pane > .sim-bank-selection { margin-top: 0; }
 .simulador-page .sim-calculation-head { display: flex; justify-content: flex-end; align-items: center; gap: 20px; margin-bottom: 18px; }
 .simulador-page .sim-calculation-entry { margin-top: 18px; padding: 16px; border: 1px solid #2b5369; border-radius: 12px; background: #0c2332; }
 .simulador-page .sim-calculation-entry-title { margin-right: auto; color: var(--sim-text); font-size: .83rem; }
@@ -305,6 +315,44 @@
 .simulador-page .sim-multi-card-condition span { color: #8bc8ed; font-size: .73rem; }
 .simulador-page .sim-multi-card .sim-primary-result > strong { font-size: 1.45rem; }
 .simulador-page .sim-multi-card .sim-payment-result > strong { font-size: 1.3rem; }
+/* Desktop: seleção à esquerda e cálculo/resultado à direita, sem ocultar controles. */
+@media (min-width: 1100px) {
+  .simulador-page .sim-page { width: min(1480px, calc(100% - 48px)); }
+  .simulador-page .sim-controls { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+  .simulador-page .sim-calculation-pane { padding-left: 24px; border-left: 1px solid var(--sim-border); }
+  .simulador-page .sim-calculation-pane .sim-calculation-entry { margin-top: 0; }
+  .simulador-page .sim-calculation-pane .sim-calculation-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .simulador-page .sim-calculation-pane .sim-mode-option { flex: 1; min-width: 0; }
+  .simulador-page .sim-calculation-pane .sim-inputs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .sim-calculation-pane .sim-inputs-grid > .sim-field:last-child { grid-column: 1 / -1; }
+  .simulador-page .sim-calculation-pane .sim-calculation-footer { flex-direction: column; align-items: stretch; gap: 12px; }
+  .simulador-page .sim-calculation-pane .sim-submit { width: 100%; }
+  .simulador-page .sim-calculation-pane > .sim-result-card { max-width: none; margin-top: 18px; }
+  .simulador-page .sim-selection-pane .sim-factor-calculator-fields { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .sim-selection-pane .sim-factor-calculator > summary > span { display: block; margin: 6px 0 0; }
+  /* Com as duas áreas abertas, cada painel ganha uma coluna e o conteúdo se adapta. */
+  .simulador-page .sim-panels-layout.is-split { grid-template-columns: minmax(0, .95fr) minmax(0, 1.1fr); gap: 20px; }
+  .simulador-page .sim-panels-layout.is-split > .sim-search-panel:not([hidden]) { grid-column: 1; grid-row: 1; }
+  .simulador-page .sim-panels-layout.is-split > .sim-workspace { grid-column: 2; grid-row: 1; }
+  .simulador-page .is-split .sim-controls { display: block; }
+  .simulador-page .is-split .sim-calculation-pane { margin-top: 18px; padding-left: 0; border-left: 0; }
+  .simulador-page .is-split .sim-search-heading { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .simulador-page .is-split .sim-search-heading > .sim-side-title { grid-column: 1 / -1; }
+  .simulador-page .is-split .sim-search-heading > .sim-result-badge { justify-self: start; }
+  .simulador-page .is-split .sim-search-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .is-split .sim-clt-primary { grid-column: 1 / -1; }
+  .simulador-page .is-split .sim-search-mode { flex: 1; }
+  .simulador-page .is-split .sim-search-actions > small { flex-basis: 100%; }
+  .simulador-page .is-split .sim-search-actions > button { flex: 1; }
+  .simulador-page .is-split .sim-bank-results:not(.is-advanced):not(#sim-clt-results) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .is-split .sim-bank-results.is-advanced { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .is-split .sim-workspace-heading { flex-wrap: wrap; }
+  .simulador-page .is-split .sim-multi-filters,
+  .simulador-page .is-split .sim-multi-group-options,
+  .simulador-page .is-split .sim-multi-cards { grid-template-columns: minmax(0, 1fr); }
+  .simulador-page .is-split .sim-multi-manual-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .simulador-page .is-split .sim-multiple-panel > summary { flex-wrap: wrap; }
+}
 @media (max-width: 1000px) {
   .simulador-page .sim-multi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .simulador-page .sim-multi-manual-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }

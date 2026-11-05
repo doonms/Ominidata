@@ -12,6 +12,7 @@ import { normalizarBaseFatores, preservarBackupFatoresDatados } from './base-fat
 import { tabelaAtendePublico } from './publico-tabelas.js';
 import { initPesquisaOutros } from './pesquisa-outros-convenios.js?v=20261021-origem-2';
 import { initPesquisaClt } from './pesquisa-clt.js';
+import { initLayoutPaineis } from './layout-paineis.js';
 
 function lerCache(chaves, converter) {
   for (const chave of chaves) {
@@ -44,6 +45,7 @@ export async function initSimulador() {
   const root = document.querySelector('.sim-page');
   if (!root || root.dataset.simInicializado) return;
   root.dataset.simInicializado = 'true';
+  initLayoutPaineis(root);
   const el = id => root.querySelector(`#${id}`);
   const banco = el('slBanco');
   const prazo = el('slPrazo');

@@ -232,7 +232,8 @@ function initCalculadoraManual(els) {
   initCalculadoraFator({
     campos: { parcela: els.calcParcela, fator: els.calcFator, valor: els.calcValor },
     status: els.calcStatus,
-    limpar: els.calcLimpar
+    limpar: els.calcLimpar,
+    aoAtualizar: valido => els.editorTabelas?.atualizarCalculo(valido)
   });
 }
 

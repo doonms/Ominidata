@@ -1,9 +1,17 @@
 import { tabelasVinculadas, prepararVinculoTabelas, vincularTabelasPorPrazo, desvincularFatoresEmLote } from './vinculos-fatores.js';
+import { initInjecaoFatores } from './injecao-fatores.js';
 
 export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar }) {
   if (!root) return null;
   const selecoes = { margem: new Set(), cartao: new Set() };
   const referencias = { margem: null, cartao: null };
+  let bancoAnterior;
+  const injecao = initInjecaoFatores({ root, salvar, renderizar, avisar,
+    getSelecao: tipo => ({
+      tabelas: getBanco()?.tabelas[tipo] || [],
+      selecionadas: [...selecoes[tipo]], referencia: referencias[tipo]
+    })
+  });
   function botao(texto, classe, acao, disabled = false) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = classe; button.textContent = texto; button.disabled = disabled;
@@ -11,6 +19,12 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
     return button;
   }
   function atualizar() {
+    if (bancoAnterior !== getBanco()) {
+      bancoAnterior = getBanco();
+      Object.values(selecoes).forEach(s => s.clear());
+      Object.keys(referencias).forEach(t => { referencias[t] = null; });
+      injecao?.limpar();
+    }
     for (const tipo of ['margem', 'cartao']) {
       const tabelas = getBanco()?.tabelas[tipo] || [];
       const linhas = tabelas.flatMap(t => t.prazos);
@@ -32,7 +46,7 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
         count.textContent = `${selecao.size} tabela${selecao.size === 1 ? '' : 's'} selecionada${selecao.size === 1 ? '' : 's'}`;
         header.append(count,
           botao('Selecionar todas', 'secondary small bf-bulk-all', () => {
-            tabelas.forEach(t => selecao.add(t)); atualizar();
+            tabelas.forEach(t => selecao.add(t)); injecao?.selecionarTipo(tipo); atualizar();
           }, !tabelas.length),
           botao('Limpar seleção', 'secondary small bf-bulk-clear', () => {
             selecao.clear(); atualizar();
@@ -42,7 +56,7 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
         const actions = document.createElement('div');
         actions.className = 'bf-bulk-actions';
         const label = document.createElement('label');
-        label.textContent = 'Tabela de referência — fatores por prazo';
+        label.textContent = 'Tabela de referência — fator e taxa por prazo';
         const select = document.createElement('select');
         select.className = 'bf-bulk-reference';
         tabelas.forEach((t, i) => {
@@ -52,17 +66,19 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
         select.addEventListener('change', () => {
           referencias[tipo] = tabelas[Number(select.value)];
           root.querySelectorAll(`.bf-bulk-tools[data-tipo="${tipo}"] .bf-bulk-reference`).forEach(outro => { outro.value = select.value; });
+          injecao?.atualizar();
         });
         label.appendChild(select);
         actions.append(label,
+          botao('Usar na calculadora ↑', 'primary small bf-bulk-inject', () => injecao?.abrir(tipo)),
           botao('Vincular selecionadas', 'primary small bf-bulk-link', () => {
             const plano = prepararVinculoTabelas(tabelas, [...selecao], referencias[tipo]);
             if (plano.erro) { avisar(plano.erro, true); return; }
-            if (plano.diferentes && !confirm(`Aplicar os fatores da tabela "${referencias[tipo].nome}" nos prazos em comum das tabelas selecionadas? Nomes, taxas e demais prazos serão mantidos.`)) return;
+            if (plano.diferentes && !confirm(`Aplicar os fatores e taxas da tabela "${referencias[tipo].nome}" nos prazos em comum das tabelas selecionadas? Nomes e demais prazos serão mantidos.`)) return;
             const resultado = vincularTabelasPorPrazo(tabelas, [...selecao], referencias[tipo]);
             if (resultado.erro) { avisar(resultado.erro, true); return; }
             salvar(); renderizar();
-            avisar(`Tabelas vinculadas: ${resultado.pares.length} correspondências de prazo. Cada prazo compartilha apenas o seu fator. Taxas e nomes foram mantidos.`);
+            avisar(`Tabelas vinculadas: ${resultado.pares.length} correspondências de prazo. Fator e taxa sincronizados por prazo. Nomes e prazos exclusivos mantidos.`);
           }, selecao.size < 2),
           botao('Desvincular selecionadas', 'secondary small bf-bulk-unlink', () => {
             desvincularFatoresEmLote(linhas, [...selecao].flatMap(t => t.prazos));
@@ -71,10 +87,11 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
           }, ![...selecao].some(t => t.prazos.some(p => tabelasVinculadas(linhas, p).length > 1))));
         const info = document.createElement('p');
         info.className = 'bf-link-help';
-        info.textContent = 'Somente prazos iguais são vinculados. Prazos exclusivos, nomes e taxas não mudam.';
+        info.textContent = 'Use a calculadora para injetar fator e taxa em um prazo. Ou vincule os prazos em comum usando a tabela de referência. Nomes e prazos exclusivos não mudam.';
         bar.append(actions, info);
       });
     }
+    injecao?.atualizar();
   }
   function criarSelecao(tabela, tipo) {
     const label = document.createElement('label');
@@ -86,10 +103,11 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
     label.append(check, span);
     check.addEventListener('change', () => {
       if (check.checked) selecoes[tipo].add(tabela); else selecoes[tipo].delete(tabela);
+      injecao?.selecionarTipo(tipo);
       atualizar();
     });
     return label;
   }
-  function limpar() { Object.values(selecoes).forEach(s => s.clear()); atualizar(); }
-  return { atualizar, criarSelecao, limpar };
+  function limpar() { Object.values(selecoes).forEach(s => s.clear()); Object.keys(referencias).forEach(t => { referencias[t] = null; }); injecao?.limpar(); atualizar(); }
+  return { atualizar, criarSelecao, limpar, atualizarCalculo: valido => injecao?.atualizarCalculo(valido) };
 }

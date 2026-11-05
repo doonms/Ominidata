@@ -109,6 +109,8 @@ def main():
                 print('PASS: layout sem overflow de 320 a 1920px; tabela cadastrada oculta e fecha a calculadora')
 
                 page.goto(base + prefix + '/pages/base-fatores.html')
+                # O HTML pode chegar antes da autorização e dos módulos dinâmicos.
+                expect(page.locator('.bf-page')).not_to_have_attribute('inert', '')
                 bf_parcela = page.locator('#bf-calcParcela')
                 bf_fator = page.locator('#bf-calcFator')
                 bf_valor = page.locator('#bf-calcValor')
