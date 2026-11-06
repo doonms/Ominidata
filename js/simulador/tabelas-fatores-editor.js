@@ -3,12 +3,23 @@ import { parseNumeroCalculo, formatarFatorCalculo } from './calculadora-fator.js
 import { tabelasVinculadas, atualizarFatorVinculado, atualizarTaxaVinculada, desvincularFatoresEmLote } from './vinculos-fatores.js';
 import { initVinculosTabelas } from './vinculos-tabelas-lote.js';
 import { normalizarPublico } from './publico-tabelas.js';
+import { criarChaveGrupoFator, listarGruposFatores, nomeGrupoDaTabela } from './grupos-fatores.js';
 
 export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
   const listasTipo = { margem: listas.margem, cartao: listas.cartao };
   const expandidas = new WeakSet();
   const linhas = tipo => getBanco()?.tabelas[tipo].flatMap(t => t.prazos) || [];
   const lote = initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar });
+  function novaLinhaPrazo(tabela, tipo, prazo) {
+    const linha = { prazo, fator: '', taxa: '' };
+    const nomeGrupo = nomeGrupoDaTabela(tabela);
+    if (!nomeGrupo) return linha;
+    const membros = listarGruposFatores(getBanco()?.tabelas[tipo] || []).get(nomeGrupo) || [];
+    const origem = membros.flatMap(t => t.prazos).find(p => Number(p.prazo) === prazo);
+    if (origem) { linha.fator = origem.fator ?? ''; linha.taxa = origem.taxa ?? ''; }
+    linha.grupo_fator = criarChaveGrupoFator(nomeGrupo, prazo);
+    return linha;
+  }
   const botao = (texto, classe, acao) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = classe; b.textContent = texto; b.addEventListener('click', acao);
@@ -30,7 +41,7 @@ export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
     if (tabela.prazos.some(p => Number(p.prazo) === prazo)) {
       avisar(`O prazo ${prazo}x já existe nesta tabela.`, true); return;
     }
-    tabela.prazos.push({ prazo, fator: '', taxa: '' });
+    tabela.prazos.push(novaLinhaPrazo(tabela, tipo, prazo));
     tabela.prazos.sort((a, b) => Number(a.prazo) - Number(b.prazo));
     salvar(); renderizar();
     if (focar) {
@@ -131,7 +142,7 @@ export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
     custom.append(customLabel, botao('Adicionar prazo', 'secondary small bf-custom-add', adicionar),
       botao('Adicionar todos os padrões', 'secondary small bf-all-terms', () => {
         PRAZOS_PADRAO.filter(p => !tabela.prazos.some(item => Number(item.prazo) === p))
-          .forEach(prazo => tabela.prazos.push({ prazo, fator: '', taxa: '' }));
+          .forEach(prazo => tabela.prazos.push(novaLinhaPrazo(tabela, tipo, prazo)));
         tabela.prazos.sort((a, b) => Number(a.prazo) - Number(b.prazo));
         salvar(); renderizar();
       }));
@@ -222,6 +233,8 @@ export function initEditorTabelas({ root, listas, getBanco, salvar, avisar }) {
           avisar(`O prazo ${valor}x já existe nesta tabela.`, true); return;
         }
         linha.prazo = valor;
+        const nomeGrupo = nomeGrupoDaTabela(tabela);
+        if (nomeGrupo) linha.grupo_fator = criarChaveGrupoFator(nomeGrupo, valor);
         tabela.prazos.sort((a, b) => Number(a.prazo) - Number(b.prazo));
         salvar(); renderizar();
         avisar('Prazo do rascunho definido. Fator e taxa foram mantidos.');

@@ -1120,6 +1120,14 @@ button.small {
 .base-fatores-page .bf-page-footer > button[hidden] { display: none; }
 .base-fatores-page .bf-bulk-tools { margin: 10px 0; padding: 10px; border: 1px solid var(--bf-border); border-radius: 10px; background: rgba(21, 149, 255, .05); }
 .base-fatores-page .bf-bulk-tools[hidden] { display: none; }
+.base-fatores-page .bf-group-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--bf-border); }
+.base-fatores-page .bf-group-tools > label { display: grid; gap: 5px; flex: 1 1 200px; min-width: 0; color: #c5ddec; font-size: .74rem; }
+.base-fatores-page .bf-group-select { width: 100%; min-width: 0; min-height: 36px; padding: 8px; border: 1px solid var(--bf-border); border-radius: 7px; background: #0d1d2a; color: var(--bf-text); font-size: .75rem; }
+.base-fatores-page .bf-group-tools > .bf-link-help { flex-basis: 100%; margin: 0; }
+.base-fatores-page .bf-table-group { max-width: 180px; padding: 4px 8px; border-radius: 7px; border: 1px solid #3c7c9d; color: #b7e6ff; background: #12374b; font-size: .7rem; overflow-wrap: anywhere; }
+.base-fatores-page .bf-table-group[hidden] { display: none; }
+.base-fatores-page .bf-group-tools button { max-width: 100%; white-space: normal; }
+.base-fatores-page .bf-sync-bar > div:not(.bf-sync-actions) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .base-fatores-page .bf-bulk-heading,
 .base-fatores-page .bf-bulk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .base-fatores-page .bf-bulk-heading > strong { flex: 1 1 180px; color: #abd8f3; font-size: .74rem; }

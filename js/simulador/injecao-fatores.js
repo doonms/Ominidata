@@ -57,7 +57,7 @@ export function initInjecaoFatores({ root, getSelecao, salvar, renderizar, avisa
     const plano = prepararInjecaoFator(tabelas, selecionadas, meses, fator, taxa.value);
     if (plano.erro) { avisar(plano.erro, true); return; }
     const nomes = selecionadas.map(t => `• ${t.nome || 'Sem nome'}`).join('\n');
-    if (!confirm(`Injetar fator ${formatarFatorCalculo(fator)} e ${taxa.value ? `taxa ${taxa.value}%` : 'sem taxa'} no prazo ${meses}x?\n\n${nomes}\n\n${plano.novos ? `O prazo será criado em ${plano.novos} tabela(s). ` : ''}Os valores atuais desse prazo serão substituídos. Fator e taxa ficarão vinculados somente entre estas tabelas nesse prazo. Nomes, público e outros prazos serão mantidos.`)) return;
+    if (!confirm(`Injetar fator ${formatarFatorCalculo(fator)} e ${taxa.value ? `taxa ${taxa.value}%` : 'sem taxa'} no prazo ${meses}x?\n\n${nomes}\n\n${plano.novos ? `O prazo será criado em ${plano.novos} tabela(s). ` : ''}Os valores atuais desse prazo serão substituídos. Fator e taxa continuarão sincronizados no grupo selecionado. Nomes, público e outros prazos serão mantidos.`)) return;
     const resultado = injetarFatorTabelas(tabelas, selecionadas, meses, fator, taxa.value);
     if (resultado.erro) { avisar(resultado.erro, true); return; }
     salvar();

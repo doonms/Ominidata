@@ -1,10 +1,11 @@
-import { tabelasVinculadas, prepararVinculoTabelas, vincularTabelasPorPrazo, desvincularFatoresEmLote } from './vinculos-fatores.js';
 import { initInjecaoFatores } from './injecao-fatores.js';
+import { criarFerramentasGrupos, listarGruposFatores, nomeGrupoDaTabela } from './grupos-fatores.js';
 
 export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar }) {
   if (!root) return null;
   const selecoes = { margem: new Set(), cartao: new Set() };
   const referencias = { margem: null, cartao: null };
+  const gruposAtivos = { margem: '', cartao: '' };
   let bancoAnterior;
   const injecao = initInjecaoFatores({ root, salvar, renderizar, avisar,
     getSelecao: tipo => ({
@@ -23,12 +24,13 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
       bancoAnterior = getBanco();
       Object.values(selecoes).forEach(s => s.clear());
       Object.keys(referencias).forEach(t => { referencias[t] = null; });
+      Object.keys(gruposAtivos).forEach(t => { gruposAtivos[t] = ''; });
       injecao?.limpar();
     }
     for (const tipo of ['margem', 'cartao']) {
       const tabelas = getBanco()?.tabelas[tipo] || [];
-      const linhas = tabelas.flatMap(t => t.prazos);
       const selecao = selecoes[tipo];
+      if (!listarGruposFatores(tabelas).has(gruposAtivos[tipo])) gruposAtivos[tipo] = '';
       [...selecao].forEach(t => { if (!tabelas.includes(t)) selecao.delete(t); });
       if (!selecao.has(referencias[tipo])) referencias[tipo] = tabelas.find(t => selecao.has(t)) || null;
       root.querySelectorAll(`[data-tabelas-tipo="${tipo}"] > .bf-table-card`).forEach((card, indice) => {
@@ -36,10 +38,27 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
         check.checked = selecao.has(tabelas[indice]);
         check.setAttribute('aria-label', `Selecionar tabela ${tabelas[indice].nome || indice + 1}`);
         card.classList.toggle('is-bulk-selected', check.checked);
+        let badge = card.querySelector('.bf-table-group');
+        if (!badge) {
+          badge = document.createElement('span'); badge.className = 'bf-table-group';
+          card.querySelector('.bf-table-actions').prepend(badge);
+        }
+        badge.textContent = nomeGrupoDaTabela(tabelas[indice]) || '';
+        badge.hidden = !badge.textContent;
       });
       root.querySelectorAll(`.bf-bulk-tools[data-tipo="${tipo}"]`).forEach(bar => {
         bar.hidden = bar.dataset.posicao === 'fim' && !selecao.size;
         bar.replaceChildren();
+        bar.appendChild(criarFerramentasGrupos({ tabelas, selecao, referencia: referencias[tipo], grupoAtual: gruposAtivos[tipo], avisar,
+          aoEscolher: nome => { gruposAtivos[tipo] = nome; atualizar(); },
+          aoSelecionar: membros => {
+            selecao.clear(); membros.forEach(t => selecao.add(t));
+            referencias[tipo] = membros[0] || null;
+            injecao?.selecionarTipo(tipo); atualizar();
+            avisar(`Grupo "${gruposAtivos[tipo]}": ${membros.length} tabela(s) selecionada(s). Use a calculadora ou edite um fator para atualizar o grupo.`);
+          },
+          aoSalvar: nome => { gruposAtivos[tipo] = nome; salvar(); renderizar(); }
+        }));
         const header = document.createElement('div');
         header.className = 'bf-bulk-heading';
         const count = document.createElement('strong');
@@ -70,24 +89,10 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
         });
         label.appendChild(select);
         actions.append(label,
-          botao('Usar na calculadora ↑', 'primary small bf-bulk-inject', () => injecao?.abrir(tipo)),
-          botao('Vincular selecionadas', 'primary small bf-bulk-link', () => {
-            const plano = prepararVinculoTabelas(tabelas, [...selecao], referencias[tipo]);
-            if (plano.erro) { avisar(plano.erro, true); return; }
-            if (plano.diferentes && !confirm(`Aplicar os fatores e taxas da tabela "${referencias[tipo].nome}" nos prazos em comum das tabelas selecionadas? Nomes e demais prazos serão mantidos.`)) return;
-            const resultado = vincularTabelasPorPrazo(tabelas, [...selecao], referencias[tipo]);
-            if (resultado.erro) { avisar(resultado.erro, true); return; }
-            salvar(); renderizar();
-            avisar(`Tabelas vinculadas: ${resultado.pares.length} correspondências de prazo. Fator e taxa sincronizados por prazo. Nomes e prazos exclusivos mantidos.`);
-          }, selecao.size < 2),
-          botao('Desvincular selecionadas', 'secondary small bf-bulk-unlink', () => {
-            desvincularFatoresEmLote(linhas, [...selecao].flatMap(t => t.prazos));
-            salvar(); renderizar();
-            avisar('Tabelas selecionadas desvinculadas. Os fatores e taxas atuais foram mantidos.');
-          }, ![...selecao].some(t => t.prazos.some(p => tabelasVinculadas(linhas, p).length > 1))));
+          botao('Usar na calculadora ↑', 'primary small bf-bulk-inject', () => injecao?.abrir(tipo)));
         const info = document.createElement('p');
         info.className = 'bf-link-help';
-        info.textContent = 'Use a calculadora para injetar fator e taxa em um prazo. Ou vincule os prazos em comum usando a tabela de referência. Nomes e prazos exclusivos não mudam.';
+        info.textContent = 'Salve a seleção como grupo para sincronizar fatores e taxas dos prazos iguais. Depois, qualquer alteração nesses prazos será aplicada a todas as tabelas do grupo.';
         bar.append(actions, info);
       });
     }
@@ -108,6 +113,6 @@ export function initVinculosTabelas({ root, getBanco, salvar, renderizar, avisar
     });
     return label;
   }
-  function limpar() { Object.values(selecoes).forEach(s => s.clear()); Object.keys(referencias).forEach(t => { referencias[t] = null; }); injecao?.limpar(); atualizar(); }
+  function limpar() { Object.values(selecoes).forEach(s => s.clear()); Object.keys(referencias).forEach(t => { referencias[t] = null; gruposAtivos[t] = ''; }); injecao?.limpar(); atualizar(); }
   return { atualizar, criarSelecao, limpar, atualizarCalculo: valido => injecao?.atualizarCalculo(valido) };
 }

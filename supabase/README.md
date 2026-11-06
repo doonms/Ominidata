@@ -91,26 +91,32 @@ ficam ocultas até informar o perfil. Espécie **Invalidez** seleciona esse púb
 Geral, LOAS e Pensão são considerados sem invalidez. Tabelas normais continuam
 visíveis e o cálculo com fator manual permanece livre.
 
-## Vincular fatores de tabelas
+## Grupos de fatores
 
-Para vincular várias tabelas de uma vez, marque **Selecionar tabela** nos cartões
-(ou use **Selecionar todas**), escolha a **Tabela de referência** e clique
-em **Vincular selecionadas**. A ação está disponível no início e no fim da lista.
-Somente prazos iguais são vinculados: 12x com 12x, 24x com 24x, etc.
-Prazos exclusivos não são adicionados, removidos ou alterados. Todas as tabelas
-selecionadas precisam ter pelo menos um prazo em comum com a referência.
-Se os fatores forem diferentes, uma única confirmação avisa antes de substituir.
-**Desvincular selecionadas** remove os vínculos mantendo os fatores atuais.
-Somente as tabelas selecionadas são movidas; membros não selecionados dos
-grupos anteriores não são arrastados para o novo grupo.
+Em cada banco/modalidade, marque as tabelas (ou use **Selecionar todas**), escolha
+a **Tabela de referência** e use **Salvar e sincronizar grupo**. O grupo salvo é o
+próprio vínculo dos fatores: prazos iguais recebem o fator e a taxa da referência
+e passam a ser atualizados juntos. Prazos exclusivos continuam na tabela e entram
+automaticamente no vínculo se o mesmo prazo for adicionado a outro membro.
+
+Depois, escolha o grupo e clique em **Selecionar grupo** para marcar todos os seus
+membros, inclusive quando os cartões estiverem recolhidos. A calculadora exige o
+grupo completo para aplicar uma alteração em várias tabelas. **Desfazer grupo**
+mantém fatores e taxas atuais, mas encerra a sincronização entre as tabelas.
+
+O nome aceita até 80 caracteres. Não existe um grupo separado apenas para edição:
+o nome é gravado no próprio `grupo_fator`, com uma chave diferente para cada prazo.
+Por isso, somente prazos iguais são sincronizados: 12x com 12x, 84x com 84x etc.
+Para publicar os grupos, basta a migração já existente
+`migrations/20261020_base_fatores_vinculos.sql`; nenhuma coluna adicional é usada.
 
 Os botões **Adicionar tabela** estão no começo e no fim das listas, com atalhos
 também no fim da página. Os prazos são adicionados dentro de cada tabela.
-O vínculo individual antigo foi removido; existe apenas a seleção em lote.
+O vínculo individual antigo foi removido; existe apenas o grupo em lote.
 
 - Editar o fator de um prazo atualiza esse mesmo prazo nos outros membros do grupo.
-- Nome, taxa e prazo permanecem independentes. Outro banco ou modalidade
-  não é alterado.
+- Nome, público e prazos exclusivos permanecem independentes. Fator e taxa de
+  prazos iguais ficam sincronizados. Outro banco ou modalidade não é alterado.
 - Vínculos ficam no navegador e no JSON exportado. Exporte e envie o JSON para
   publicar fatores e vínculos para os demais usuários no Supabase.
 - Arquivos antigos sem a propriedade `grupo_fator` não desfazem vínculos

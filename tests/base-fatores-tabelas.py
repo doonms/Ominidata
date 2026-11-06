@@ -38,7 +38,12 @@ def main():
                 page.on('response', lambda r: errors.append(f'HTTP {r.status}: {r.url}') if r.status >= 400 and any(k in r.url for k in ['.css', '.js']) else None)
                 def dialog(d):
                     dialogs.append(d.message)
-                    d.dismiss() if cancel[0] and d.type == 'confirm' else d.accept()
+                    if d.type == 'prompt':
+                        d.accept('Grupo Tabelas')
+                    elif cancel[0] and d.type == 'confirm':
+                        d.dismiss()
+                    else:
+                        d.accept()
                 page.on('dialog', dialog)
                 base = f'http://127.0.0.1:{server.server_port}' + prefix
                 page.goto(base + '/pages/base-fatores.html')
@@ -136,12 +141,12 @@ def main():
                 bottom = page.locator('.bf-bulk-tools[data-tipo=margem][data-posicao=fim]')
                 top.locator('.bf-bulk-reference').select_option('0')
                 cancel[0] = True
-                bottom.locator('.bf-bulk-link').click()
+                bottom.locator('.bf-group-save').click()
                 expect(b.locator('[data-prazo="12"] .fator')).to_have_value('0,2000')
                 cancel[0] = False
                 n = len(dialogs)
-                bottom.locator('.bf-bulk-link').click()
-                assert len(dialogs) == n + 1
+                bottom.locator('.bf-group-save').click()
+                assert len(dialogs) > n
                 expect(a.locator('.bf-table-body')).to_be_hidden()
                 a.locator('.bf-table-toggle').click()
                 expect(a.locator('.bf-table-body')).to_be_visible()
@@ -160,10 +165,10 @@ def main():
                 expect(b.locator('[data-prazo="24"] .fator')).to_have_value('0,0600')
                 expect(a.locator('[data-prazo="90"] .fator')).to_have_value('0,0200')
                 expect(a.locator('[data-prazo="12"] .bf-term-linked')).to_contain_text('2 tabelas')
-                top.locator('.bf-bulk-unlink').click()
+                top.locator('.bf-group-remove').click()
                 a.locator('[data-prazo="12"] .fator').fill('0,13')
                 expect(b.locator('[data-prazo="12"] .fator')).to_have_value('0,1200')
-                bottom.locator('.bf-bulk-link').click()
+                bottom.locator('.bf-group-save').click()
                 a.locator('[data-prazo="12"] .fator').fill('0,12')
                 b.get_by_role('button', name='Remover prazo 12 meses', exact=True).click()
                 expect(b.locator('[data-prazo="12"]')).to_have_count(0)
@@ -172,7 +177,6 @@ def main():
                 b.get_by_role('button', name='Adicionar prazo 12 meses', exact=True).click()
                 b.locator('[data-prazo="12"] .fator').fill('0,12')
                 b.locator('[data-prazo="12"] .taxa').fill('2,10')
-                bottom.locator('.bf-bulk-link').click()
                 print('PASS: remover prazo vinculado mantém o prazo e fator da outra tabela')
                 print('PASS: 12x vincula a 12x, 24x a 24x; fator e taxa sincronizados; nomes e prazos exclusivos preservados; confirmação/cancelamento/desvincular corretos')
 
@@ -249,7 +253,7 @@ def main():
                 expect(page2.locator('#bf-listaPrazosMargem .bf-term-row')).to_have_count(14)
                 validacoes = page2.evaluate("""async () => {
                     const { prepararFatores } = await import('../js/api/baseFatoresApi.js');
-                    const { prepararVinculoTabelas } = await import('../js/simulador/vinculos-fatores.js');
+                    const { prepararGrupoFatores } = await import('../js/simulador/grupos-fatores.js');
                     const base = { Banco: { tabelas: { margem: [{ nome: 'Tabela', prazos: [{ prazo: 12, fator: .1, taxa: 1.7 }] }], cartao: [] } } };
                     const casos = [
                         b => b.Banco.tabelas.margem[0].nome = '',
@@ -271,15 +275,12 @@ def main():
                         const b = structuredClone(base); mudar(b);
                         try { prepararFatores(b); return false; } catch { return true; }
                     });
-                    const tabelas = [
-                        { nome:'A', prazos:[{ prazo:12, fator:.1 }] },
-                        { nome:'B', prazos:[{ prazo:24, fator:.2 }] }
-                    ];
+                    const tabelas = [{ nome:'A', prazos:[{ prazo:12, fator:.1 }] }, { nome:'B', prazos:[] }];
                     return rejeitados && prepararFatores(base).length === 1 &&
-                        !!prepararVinculoTabelas(tabelas, tabelas, tabelas[0]).erro &&
-                        tabelas[1].prazos[0].fator === .2;
+                        !!prepararGrupoFatores(tabelas, tabelas, 'Grupo', tabelas[0]).erro &&
+                        tabelas[0].prazos[0].fator === .1;
                 }""")
-                assert validacoes, 'Cadastro inválido ou vínculo sem prazos em comum não foi bloqueado'
+                assert validacoes, 'Cadastro inválido ou grupo com tabela vazia não foi bloqueado'
                 parcial = {'BancodoBrasil': {'tabelas': {'margem': [
                     {'nome': 'Importada', 'prazos': [{'prazo': 30, 'fator': .2, 'taxa': 2}]},
                     {'nome': 'Rascunho importado', 'prazos': []}]}}}

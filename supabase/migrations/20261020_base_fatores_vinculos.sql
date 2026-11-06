@@ -4,6 +4,6 @@ begin;
 alter table public.base_fatores
   add column if not exists grupo_fator text;
 comment on column public.base_fatores.grupo_fator is
-  'Identificador do vínculo de fator entre tabelas do mesmo banco, data e modalidade; nomes, taxas e prazos permanecem independentes.';
+  'Identificador do grupo que sincroniza fator e taxa entre tabelas do mesmo banco, data, modalidade e prazo; nomes, públicos e prazos exclusivos permanecem independentes.';
 notify pgrst, 'reload schema';
 commit;

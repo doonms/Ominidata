@@ -55,7 +55,12 @@ def main():
                 page.on('pageerror', lambda e: errors.append(str(e)))
                 def dialog(d):
                     dialogs.append(d.message)
-                    d.dismiss() if cancelar[0] and d.type == 'confirm' else d.accept()
+                    if d.type == 'prompt':
+                        d.accept('Grupo Injecao')
+                    elif cancelar[0] and d.type == 'confirm':
+                        d.dismiss()
+                    else:
+                        d.accept()
                 page.on('dialog', dialog)
                 base = f'http://127.0.0.1:{server.server_port}' + prefix
                 page.goto(base + '/pages/base-fatores.html')
@@ -71,10 +76,15 @@ def main():
                 a.locator('.bf-table-check').check()
                 b.locator('.bf-table-check').check()
                 assert state() == inicial, 'Selecionar não pode substituir valores'
+                ferramentas = page.locator('.bf-bulk-tools[data-tipo=margem]:not([data-posicao])')
+                ferramentas.locator('.bf-bulk-reference').select_option('0')
+                ferramentas.locator('.bf-group-save').click()
+                agrupado = state()
+                assert agrupado['BancodoBrasil']['tabelas']['margem'][1]['prazos'][0]['fator'] == .03
                 assert not page.locator('teste').count()
                 expect(page.locator('#bf-injecao-resumo')).to_contain_text('2 tabela(s)')
                 expect(a.locator('.bf-table-body')).to_be_hidden()
-                page.locator('.bf-bulk-tools[data-tipo=margem]:not([data-posicao]) .bf-bulk-inject').click()
+                ferramentas.locator('.bf-bulk-inject').click()
                 expect(prazo).to_be_focused()
                 prazo.select_option('84')
                 expect(taxa).to_have_value('1,7')
@@ -93,7 +103,7 @@ def main():
                 taxa.fill('2,11')
                 cancelar[0] = True
                 aplicar.click()
-                assert state() == inicial, 'Cancelar não pode alterar os dados'
+                assert state() == agrupado, 'Cancelar não pode alterar os dados'
                 cancelar[0] = False
                 aplicar.click()
                 expect(page.locator('#bf-injecao-status')).to_contain_text('Salvo neste navegador')
@@ -102,10 +112,10 @@ def main():
                 la, lb, lc = margem[0]['prazos'][1], margem[1]['prazos'][1], margem[2]['prazos'][0]
                 assert math.isclose(la['fator'], 350/15000, abs_tol=1e-15)
                 assert la['fator'] == lb['fator'] and la['taxa'] == lb['taxa'] == '2,11'
-                assert la['grupo_fator'] == lb['grupo_fator'] and la['grupo_fator'] != GRUPO
+                assert la['grupo_fator'] == lb['grupo_fator'] == 'grupo-nomeado|84|Grupo Injecao'
                 assert lc['fator'] == .02 and lc['taxa'] == 1.7
-                assert margem[0]['prazos'][0] == inicial['BancodoBrasil']['tabelas']['margem'][0]['prazos'][0]
-                assert margem[1]['prazos'][0] == inicial['BancodoBrasil']['tabelas']['margem'][1]['prazos'][0]
+                assert margem[0]['prazos'][0] == agrupado['BancodoBrasil']['tabelas']['margem'][0]['prazos'][0]
+                assert margem[1]['prazos'][0] == agrupado['BancodoBrasil']['tabelas']['margem'][1]['prazos'][0]
                 assert gravado['BancodoBrasil']['tabelas']['cartao'] == inicial['BancodoBrasil']['tabelas']['cartao']
                 assert gravado['Bradesco'] == inicial['Bradesco']
                 assert [t['nome'] for t in margem] == [t['nome'] for t in inicial['BancodoBrasil']['tabelas']['margem']]
@@ -151,7 +161,8 @@ def main():
                 apos = state()['BancodoBrasil']['tabelas']['margem']
                 assert apos[0]['prazos'][1]['fator'] == .02 and apos[0]['prazos'][1]['taxa'] == '1,99'
                 assert apos[1]['prazos'][1]['fator'] == .04 and apos[1]['prazos'][1]['taxa'] == ''
-                assert not apos[0]['prazos'][1]['grupo_fator'] and not apos[1]['prazos'][1]['grupo_fator']
+                assert not apos[0]['prazos'][1]['grupo_fator']
+                assert apos[1]['prazos'][1]['grupo_fator'] == 'grupo-nomeado|84|Grupo Injecao'
 
                 for width in [320, 390, 768, 1100, 1440, 1920]:
                     page.set_viewport_size({'width': width, 'height': 1000})
@@ -206,17 +217,19 @@ def main():
                 page.locator('#bf-calcValor').fill('10000')
                 expect(aplicar).to_be_enabled()
                 assert page.evaluate("""async () => {
-                    const { injetarFatorTabelas, vincularTabelasPorPrazo, prepararVinculoTabelas } = await import('../js/simulador/vinculos-fatores.js');
+                    const { injetarFatorTabelas } = await import('../js/simulador/vinculos-fatores.js');
+                    const { prepararGrupoFatores, aplicarGrupoFatores } = await import('../js/simulador/grupos-fatores.js');
                     const tabelas = ['A', 'B', 'C', 'D'].map(nome => ({ nome, prazos: [{ prazo:84, fator:.02, taxa:1.7, grupo_fator:'antigo' }] }));
                     const antes = JSON.stringify(tabelas);
                     if (!injetarFatorTabelas(tabelas, [tabelas[0]], 84, NaN, 2).erro || JSON.stringify(tabelas) !== antes) return false;
                     if (!injetarFatorTabelas(tabelas, [tabelas[0]], 84, .03, -1).erro || JSON.stringify(tabelas) !== antes) return false;
                     tabelas[1].prazos[0].taxa = 2;
-                    if (!prepararVinculoTabelas(tabelas, tabelas.slice(0,2), tabelas[0]).diferentes) return false;
-                    vincularTabelasPorPrazo(tabelas, tabelas.slice(0,2), tabelas[0]);
+                    const plano = prepararGrupoFatores(tabelas, tabelas.slice(0,2), 'Grupo teste', tabelas[0]);
+                    if (!plano.diferentes) return false;
+                    aplicarGrupoFatores(tabelas, plano);
                     return tabelas[0].prazos[0].grupo_fator === tabelas[1].prazos[0].grupo_fator &&
                         tabelas[1].prazos[0].taxa === 1.7 &&
-                        tabelas[0].prazos[0].grupo_fator !== 'antigo' &&
+                        tabelas[0].prazos[0].grupo_fator === 'grupo-nomeado|84|Grupo teste' &&
                         tabelas[2].prazos[0].grupo_fator === 'antigo' && tabelas[3].prazos[0].grupo_fator === 'antigo';
                 }""")
                 assert not errors, errors
